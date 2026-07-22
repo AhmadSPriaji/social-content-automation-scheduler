@@ -1,12 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { Post, PostDocument } from './schemas/post.schema';
 import { CreatePostDto, UpdatePostDto } from './dto/post.dto';
 
 @Injectable()
 export class PostsService {
-  constructor(@InjectModel(Post.name) private postModel: Model<PostDocument>) {}
+  constructor(
+    @InjectModel(Post.name) private postModel: Model<PostDocument>,
+    @InjectQueue('publish-post') private publishQueue: Queue,
+  ) {}
 
   async create(authorId: string, createPostDto: CreatePostDto): Promise<Post> {
     const newPost = new this.postModel({
@@ -40,5 +45,41 @@ export class PostsService {
     if (!result) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
+  }
+
+  async updateStatus(id: string, status: string): Promise<void> {
+    await this.postModel.findByIdAndUpdate(id, { status }).exec();
+  }
+
+  async incrementRetryCount(id: string): Promise<void> {
+    await this.postModel.findByIdAndUpdate(id, { $inc: { retryCount: 1 } }).exec();
+  }
+
+  async schedulePost(id: string): Promise<void> {
+    const post = await this.findById(id);
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
+    }
+
+    if (!post.scheduledAt) {
+      throw new BadRequestException('Post does not have a scheduledAt date');
+    }
+
+    const delay = Math.max(0, post.scheduledAt.getTime() - Date.now());
+
+    await this.updateStatus(id, 'scheduled');
+
+    await this.publishQueue.add(
+      'publish',
+      { postId: id },
+      {
+        delay,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+      },
+    );
   }
 }
