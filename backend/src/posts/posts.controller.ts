@@ -62,6 +62,13 @@ export class PostsController {
     return { message: 'Post deleted successfully' };
   }
 
+  @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Post(':id/schedule')
+  async schedule(@Param('id') id: string) {
+    await this.postsService.schedulePost(id);
+    return { message: 'Post successfully scheduled' };
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post('upload')
   @UseInterceptors(
