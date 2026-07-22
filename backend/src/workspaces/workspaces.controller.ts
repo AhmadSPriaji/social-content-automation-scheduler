@@ -43,4 +43,13 @@ export class WorkspacesController {
   ) {
     return this.workspacesService.addMember(workspaceId, body.email, body.role);
   }
+
+  @ApiOperation({ summary: 'Get audit logs for a workspace' })
+  @ApiResponse({ status: 200, description: 'List of audit logs.' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR, WorkspaceRole.VIEWER)
+  @Get(':workspaceId/audit-logs')
+  async getAuditLogs(@Param('workspaceId') workspaceId: string) {
+    return this.workspacesService.getAuditLogs(workspaceId);
+  }
 }

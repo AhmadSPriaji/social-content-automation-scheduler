@@ -3,8 +3,11 @@ import { Document, Types } from 'mongoose';
 
 @Schema({ timestamps: { createdAt: 'timestamp', updatedAt: false } })
 export class AuditLog extends Document {
-  @Prop({ type: Types.ObjectId, ref: 'Post', required: true })
-  postId: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Post', required: false })
+  postId?: Types.ObjectId;
+
+  @Prop({ type: Types.ObjectId, ref: 'Workspace', required: false })
+  workspaceId?: Types.ObjectId;
 
   @Prop({ required: true })
   action: string;

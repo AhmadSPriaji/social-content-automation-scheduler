@@ -19,7 +19,7 @@ export class PostProcessor extends WorkerHost {
     const { postId } = job.data;
     const attempt = job.attemptsMade + 1;
     this.logger.log(`Processing job ${job.id} for post ${postId} (Attempt ${attempt})`);
-    await this.auditLogsService.createLog(postId, 'publish_attempt', `Attempt ${attempt} to publish post`);
+    await this.auditLogsService.createLog('publish_attempt', `Attempt ${attempt} to publish post`, { postId });
 
     try {
       // 1. Simulate API delay
@@ -33,7 +33,7 @@ export class PostProcessor extends WorkerHost {
       // 3. Success: Update status to published
       await this.postsService.updateStatus(postId, 'published');
       this.logger.log(`Post ${postId} successfully published.`);
-      await this.auditLogsService.createLog(postId, 'publish_success', `Post published successfully on attempt ${attempt}`);
+      await this.auditLogsService.createLog('publish_success', `Post published successfully on attempt ${attempt}`, { postId });
       
       return { status: 'published' };
     } catch (error: any) {
@@ -46,9 +46,9 @@ export class PostProcessor extends WorkerHost {
       if (job.attemptsMade >= (job.opts.attempts || 1) - 1) {
         this.logger.warn(`Max retries reached for post ${postId}. Marking as failed.`);
         await this.postsService.updateStatus(postId, 'failed');
-        await this.auditLogsService.createLog(postId, 'publish_failed', `Permanent failure after ${attempt} attempts: ${error.message}`);
+        await this.auditLogsService.createLog('publish_failed', `Permanent failure after ${attempt} attempts: ${error.message}`, { postId });
       } else {
-        await this.auditLogsService.createLog(postId, 'publish_failed', `Attempt ${attempt} failed: ${error.message}. Retrying...`);
+        await this.auditLogsService.createLog('publish_failed', `Attempt ${attempt} failed: ${error.message}. Retrying...`, { postId });
       }
 
       // Re-throw to let BullMQ handle the backoff/retry

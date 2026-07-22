@@ -7,13 +7,25 @@ import { AuditLog } from './schemas/audit-log.schema';
 export class AuditLogsService {
   constructor(@InjectModel(AuditLog.name) private auditLogModel: Model<AuditLog>) {}
 
-  async createLog(postId: string, action: string, details: string): Promise<AuditLog> {
+  async createLog(
+    action: string,
+    details: string,
+    options?: { postId?: string; workspaceId?: string }
+  ): Promise<AuditLog> {
     const newLog = new this.auditLogModel({
-      postId: new Types.ObjectId(postId),
       action,
       details,
     });
+    if (options?.postId) newLog.postId = new Types.ObjectId(options.postId);
+    if (options?.workspaceId) newLog.workspaceId = new Types.ObjectId(options.workspaceId);
     return newLog.save();
+  }
+
+  async getLogsForWorkspace(workspaceId: string): Promise<AuditLog[]> {
+    return this.auditLogModel
+      .find({ workspaceId: new Types.ObjectId(workspaceId) })
+      .sort({ timestamp: -1 })
+      .exec();
   }
 
   async getLogsForPost(postId: string): Promise<AuditLog[]> {
