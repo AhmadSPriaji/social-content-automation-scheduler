@@ -180,6 +180,15 @@ describe('End-to-End Test (e2e)', () => {
       
       expect(res.body.message).toBe('Post successfully scheduled');
     });
+
+    it('GET /posts/:id/audit-logs - User 1 fetches audit logs', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/posts/${postId}/audit-logs`)
+        .set('Cookie', user1Cookies)
+        .expect(200);
+
+      expect(Array.isArray(res.body)).toBe(true);
+    });
   });
 
   describe('Workspaces Read APIs', () => {

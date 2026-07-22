@@ -5,13 +5,19 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Post, PostDocument } from './schemas/post.schema';
 import { CreatePostDto, UpdatePostDto } from './dto/post.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectQueue('publish-post') private publishQueue: Queue,
+    private auditLogsService: AuditLogsService,
   ) {}
+
+  async getAuditLogs(postId: string) {
+    return this.auditLogsService.getLogsForPost(postId);
+  }
 
   async create(authorId: string, createPostDto: CreatePostDto): Promise<Post> {
     const newPost = new this.postModel({
