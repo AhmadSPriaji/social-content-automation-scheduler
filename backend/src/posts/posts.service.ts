@@ -98,4 +98,44 @@ export class PostsService {
       },
     );
   }
+
+  async handleWebhook(id: string, payload: { event: string; details: string }) {
+    const post = await this.findById(id);
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
+    }
+
+    // Log the webhook in the audit trail
+    await this.auditLogsService.createLog(
+      'webhook_received',
+      `Webhook event '${payload.event}': ${payload.details}`,
+      { postId: id },
+    );
+
+    // React to the webhook (e.g. if the external platform banned the post)
+    if (payload.event === 'banned' || payload.event === 'failed') {
+      await this.updateStatus(id, 'failed');
+    } else if (payload.event === 'success' && post.status !== 'published') {
+      await this.updateStatus(id, 'published');
+    }
+
+    return { message: 'Webhook processed successfully' };
+  }
+
+  async getMockAnalytics(id: string) {
+    const post = await this.findById(id);
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
+    }
+
+    // Generate random but "believable" numbers for analytics
+    const baseViews = Math.floor(Math.random() * 5000) + 100;
+    
+    return {
+      views: baseViews,
+      likes: Math.floor(baseViews * (Math.random() * 0.15 + 0.05)), // 5-20% of views
+      shares: Math.floor(baseViews * (Math.random() * 0.05 + 0.01)), // 1-6% of views
+      comments: Math.floor(baseViews * (Math.random() * 0.08 + 0.02)), // 2-10% of views
+    };
+  }
 }
