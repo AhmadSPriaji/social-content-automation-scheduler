@@ -14,6 +14,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { diskStorage } from 'multer';
 import { v4 as uuidv4 } from 'uuid';
@@ -27,10 +28,13 @@ import { PostOwnershipGuard } from '../common/guards/post-ownership.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { WorkspaceRole } from '../workspaces/schemas/workspace.schema';
 
+@ApiTags('posts')
 @Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
+  @ApiOperation({ summary: 'Create a new post' })
+  @ApiResponse({ status: 201, description: 'Post created successfully.' })
   @UseGuards(JwtAuthGuard, WorkspaceRolesGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post()
@@ -39,6 +43,8 @@ export class PostsController {
     return this.postsService.create(user.id, createPostDto);
   }
 
+  @ApiOperation({ summary: 'Get all posts for a workspace' })
+  @ApiResponse({ status: 200, description: 'List of posts.' })
   @UseGuards(JwtAuthGuard, WorkspaceRolesGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR, WorkspaceRole.VIEWER)
   @Get()
@@ -49,12 +55,16 @@ export class PostsController {
     return this.postsService.findAllByWorkspace(workspaceId);
   }
 
+  @ApiOperation({ summary: 'Update a post' })
+  @ApiResponse({ status: 200, description: 'Post updated successfully.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Put(':id')
   async update(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto) {
     return this.postsService.update(id, updatePostDto);
   }
 
+  @ApiOperation({ summary: 'Delete a post' })
+  @ApiResponse({ status: 200, description: 'Post deleted successfully.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Delete(':id')
   async remove(@Param('id') id: string) {
@@ -62,6 +72,8 @@ export class PostsController {
     return { message: 'Post deleted successfully' };
   }
 
+  @ApiOperation({ summary: 'Schedule a post' })
+  @ApiResponse({ status: 200, description: 'Post successfully scheduled.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Post(':id/schedule')
   async schedule(@Param('id') id: string) {
@@ -69,6 +81,8 @@ export class PostsController {
     return { message: 'Post successfully scheduled' };
   }
 
+  @ApiOperation({ summary: 'Upload a file' })
+  @ApiResponse({ status: 201, description: 'File uploaded successfully.' })
   @UseGuards(JwtAuthGuard)
   @Post('upload')
   @UseInterceptors(
