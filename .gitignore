@@ -1,0 +1,35 @@
+# Monorepo ignores
+node_modules/
+dist/
+build/
+.env
+
+# MacOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Backend specifics
+backend/node_modules/
+backend/dist/
+backend/.env
+backend/logs/
+backend/*.log
+backend/coverage/
+
+# Frontend specifics
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+frontend/coverage/
+
+# Issue files
+.issues/
