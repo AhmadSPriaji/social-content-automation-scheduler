@@ -5,13 +5,19 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Post, PostDocument } from './schemas/post.schema';
 import { CreatePostDto, UpdatePostDto } from './dto/post.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class PostsService {
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectQueue('publish-post') private publishQueue: Queue,
+    private auditLogsService: AuditLogsService,
   ) {}
+
+  async getAuditLogs(postId: string) {
+    return this.auditLogsService.getLogsForPost(postId);
+  }
 
   async create(authorId: string, createPostDto: CreatePostDto): Promise<Post> {
     const newPost = new this.postModel({
@@ -19,7 +25,11 @@ export class PostsService {
       authorId: new Types.ObjectId(authorId),
       workspaceId: new Types.ObjectId(createPostDto.workspaceId),
     });
-    return newPost.save();
+    const saved = await newPost.save();
+
+    await this.auditLogsService.createLog('post_created', `Post created by user ${authorId}`, { postId: saved._id.toString() });
+
+    return saved;
   }
 
   async findAllByWorkspace(workspaceId: string): Promise<Post[]> {
@@ -37,6 +47,9 @@ export class PostsService {
     if (!updatedPost) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
+
+    await this.auditLogsService.createLog('post_updated', `Post updated`, { postId: id });
+
     return updatedPost;
   }
 
@@ -45,6 +58,8 @@ export class PostsService {
     if (!result) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
+
+    await this.auditLogsService.createLog('post_deleted', `Post deleted`, { postId: id });
   }
 
   async updateStatus(id: string, status: string): Promise<void> {
@@ -68,6 +83,7 @@ export class PostsService {
     const delay = Math.max(0, post.scheduledAt.getTime() - Date.now());
 
     await this.updateStatus(id, 'scheduled');
+    await this.auditLogsService.createLog('post_scheduled', `Post scheduled for publication at ${post.scheduledAt.toISOString()}`, { postId: id });
 
     await this.publishQueue.add(
       'publish',

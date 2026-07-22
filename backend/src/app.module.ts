@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 import Redis from 'ioredis';
 
 @Module({
@@ -41,6 +42,7 @@ import Redis from 'ioredis';
     WorkspacesModule,
     AuthModule,
     PostsModule,
+    AuditLogsModule,
   ],
   controllers: [AppController],
   providers: [

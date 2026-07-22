@@ -55,6 +55,14 @@ export class PostsController {
     return this.postsService.findAllByWorkspace(workspaceId);
   }
 
+  @ApiOperation({ summary: 'Get audit logs for a post' })
+  @ApiResponse({ status: 200, description: 'List of audit logs for the post.' })
+  @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Get(':id/audit-logs')
+  async getAuditLogs(@Param('id') id: string) {
+    return this.postsService.getAuditLogs(id);
+  }
+
   @ApiOperation({ summary: 'Update a post' })
   @ApiResponse({ status: 200, description: 'Post updated successfully.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
