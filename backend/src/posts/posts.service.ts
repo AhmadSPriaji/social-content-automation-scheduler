@@ -25,7 +25,11 @@ export class PostsService {
       authorId: new Types.ObjectId(authorId),
       workspaceId: new Types.ObjectId(createPostDto.workspaceId),
     });
-    return newPost.save();
+    const saved = await newPost.save();
+
+    await this.auditLogsService.createLog('post_created', `Post created by user ${authorId}`, { postId: saved._id.toString() });
+
+    return saved;
   }
 
   async findAllByWorkspace(workspaceId: string): Promise<Post[]> {
@@ -43,6 +47,9 @@ export class PostsService {
     if (!updatedPost) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
+
+    await this.auditLogsService.createLog('post_updated', `Post updated`, { postId: id });
+
     return updatedPost;
   }
 
@@ -51,6 +58,8 @@ export class PostsService {
     if (!result) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
+
+    await this.auditLogsService.createLog('post_deleted', `Post deleted`, { postId: id });
   }
 
   async updateStatus(id: string, status: string): Promise<void> {
@@ -74,6 +83,7 @@ export class PostsService {
     const delay = Math.max(0, post.scheduledAt.getTime() - Date.now());
 
     await this.updateStatus(id, 'scheduled');
+    await this.auditLogsService.createLog('post_scheduled', `Post scheduled for publication at ${post.scheduledAt.toISOString()}`, { postId: id });
 
     await this.publishQueue.add(
       'publish',
