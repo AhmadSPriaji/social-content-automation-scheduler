@@ -87,6 +87,18 @@ describe('End-to-End Test (e2e)', () => {
       user2Cookies = res.headers['set-cookie'];
       expect(user2Cookies).toBeDefined();
     });
+
+    it('POST /auth/refresh - User 1', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .set('Cookie', user1Cookies)
+        .expect(200);
+      
+      expect(res.body.message).toBe('Token refreshed successfully');
+      // Update cookies with new ones
+      user1Cookies = res.headers['set-cookie'];
+      expect(user1Cookies).toBeDefined();
+    });
   });
 
   describe('Workspaces Seeding (Direct DB)', () => {
