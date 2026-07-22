@@ -21,7 +21,7 @@ export class WorkspaceRolesGuard implements CanActivate {
     const user = request.user;
     
     // Assumes workspaceId is sent in body, query, or params
-    const workspaceId = request.params.workspaceId || request.body.workspaceId || request.query.workspaceId;
+    const workspaceId = request.params?.workspaceId || request.body?.workspaceId || request.query?.workspaceId;
 
     if (!user || !workspaceId) {
       throw new ForbiddenException('User or Workspace context missing');
