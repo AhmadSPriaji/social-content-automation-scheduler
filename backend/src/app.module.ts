@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { UsersModule } from './users/users.module';
 import { WorkspacesModule } from './workspaces/workspaces.module';
 import { AuthModule } from './auth/auth.module';
+import { PostsModule } from './posts/posts.module';
 import Redis from 'ioredis';
 
 @Module({
@@ -29,6 +30,7 @@ import Redis from 'ioredis';
     UsersModule,
     WorkspacesModule,
     AuthModule,
+    PostsModule,
   ],
   controllers: [AppController],
   providers: [
