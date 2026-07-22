@@ -101,33 +101,24 @@ describe('End-to-End Test (e2e)', () => {
     });
   });
 
-  describe('Workspaces Seeding (Direct DB)', () => {
-    it('Seed Workspace for User 1', async () => {
-      const db = connection.db;
-      if (!db) throw new Error('DB not initialized');
+  describe('Workspaces APIs', () => {
+    it('POST /workspaces - Create Workspace by User 1', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/workspaces')
+        .set('Cookie', user1Cookies)
+        .send({ name: 'User 1 Workspace' })
+        .expect(201);
       
-      const Types = require('mongoose').Types;
-      const workspace = {
-        name: 'User 1 Workspace',
-        members: [{ userId: new Types.ObjectId(user1Id), role: 'owner' }],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      
-      const result = await db.collection('workspaces').insertOne(workspace);
-      workspaceId = result.insertedId.toString();
+      workspaceId = res.body._id;
       expect(workspaceId).toBeDefined();
     });
 
-    it('Seed Workspace Member (User 2 as VIEWER)', async () => {
-      const db = connection.db;
-      if (!db) throw new Error('DB not initialized');
-      const Types = require('mongoose').Types;
-      
-      await db.collection('workspaces').updateOne(
-        { _id: new Types.ObjectId(workspaceId) },
-        { $push: { members: { userId: new Types.ObjectId(user2Id), role: 'viewer' } } as any }
-      );
+    it('POST /workspaces/:id/members - Add User 2 as VIEWER', async () => {
+      await request(app.getHttpServer())
+        .post(`/workspaces/${workspaceId}/members`)
+        .set('Cookie', user1Cookies)
+        .send({ userId: user2Id, role: 'viewer' })
+        .expect(201);
     });
   });
 
