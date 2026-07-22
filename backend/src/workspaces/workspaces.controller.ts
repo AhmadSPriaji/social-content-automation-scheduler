@@ -52,4 +52,13 @@ export class WorkspacesController {
   async getAuditLogs(@Param('workspaceId') workspaceId: string) {
     return this.workspacesService.getAuditLogs(workspaceId);
   }
+
+  @ApiOperation({ summary: 'Simulate Mock OAuth connection' })
+  @ApiResponse({ status: 200, description: 'Mock OAuth successful.' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
+  @Post(':workspaceId/integrations/mock-oauth')
+  async mockOauth(@Param('workspaceId') workspaceId: string) {
+    return this.workspacesService.mockOauthConnect(workspaceId);
+  }
 }

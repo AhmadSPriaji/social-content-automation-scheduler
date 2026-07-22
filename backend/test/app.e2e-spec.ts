@@ -188,6 +188,41 @@ describe('End-to-End Test (e2e)', () => {
         .expect(200);
 
       expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThan(0); // Should have create and schedule logs
+    });
+  });
+
+  describe('Mock APIs (OAuth, Analytics, Webhook)', () => {
+    it('POST /workspaces/:workspaceId/integrations/mock-oauth - Connect OAuth', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/workspaces/${workspaceId}/integrations/mock-oauth`)
+        .set('Cookie', user1Cookies)
+        .expect(201);
+      
+      expect(res.body.message).toBe('Successfully connected to Mock Social Provider');
+      expect(res.body.token).toBeDefined();
+    });
+
+    it('GET /posts/:id/analytics - Get Mock Analytics', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/posts/${postId}/analytics`)
+        .set('Cookie', user1Cookies)
+        .expect(200);
+      
+      expect(res.body.views).toBeDefined();
+      expect(res.body.likes).toBeDefined();
+    });
+
+    it('POST /posts/:id/webhook - Simulate Webhook', async () => {
+      const res = await request(app.getHttpServer())
+        .post(`/posts/${postId}/webhook`)
+        .send({
+          event: 'success',
+          details: 'Post successfully published on external platform',
+        })
+        .expect(201); // Controller without decorator might default to 201 for POST
+      
+      expect(res.body.message).toBe('Webhook processed successfully');
     });
   });
 

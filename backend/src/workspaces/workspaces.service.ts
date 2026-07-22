@@ -66,4 +66,23 @@ export class WorkspacesService {
 
     return saved;
   }
+
+  async mockOauthConnect(workspaceId: string) {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // Simulate connecting to a provider
+    const mockToken = `mock_oauth_token_${Math.random().toString(36).substring(7)}`;
+    
+    // Log OAuth connection
+    await this.auditLogsService.createLog('oauth_connected', `Workspace connected to Mock Social Provider`, { workspaceId });
+
+    return {
+      message: 'Successfully connected to Mock Social Provider',
+      provider: 'MockSocial',
+      token: mockToken,
+    };
+  }
 }

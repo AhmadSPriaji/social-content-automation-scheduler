@@ -80,13 +80,34 @@ export class PostsController {
     return { message: 'Post deleted successfully' };
   }
 
-  @ApiOperation({ summary: 'Schedule a post' })
-  @ApiResponse({ status: 200, description: 'Post successfully scheduled.' })
+  @ApiOperation({ summary: 'Schedule a post for publication' })
+  @ApiResponse({ status: 201, description: 'Post successfully scheduled.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Post(':id/schedule')
-  async schedule(@Param('id') id: string) {
+  async schedulePost(@Param('id') id: string) {
     await this.postsService.schedulePost(id);
-    return { message: 'Post successfully scheduled' };
+    return {
+      message: 'Post successfully scheduled',
+      status: 'scheduled',
+    };
+  }
+
+  @ApiOperation({ summary: 'Simulate Webhook Callback' })
+  @ApiResponse({ status: 200, description: 'Webhook processed.' })
+  @Post(':id/webhook')
+  async webhookCallback(
+    @Param('id') id: string,
+    @Body() payload: { event: string; details: string },
+  ) {
+    return this.postsService.handleWebhook(id, payload);
+  }
+
+  @ApiOperation({ summary: 'Get Mock Analytics' })
+  @ApiResponse({ status: 200, description: 'Returns random mock analytics.' })
+  @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Get(':id/analytics')
+  async getAnalytics(@Param('id') id: string) {
+    return this.postsService.getMockAnalytics(id);
   }
 
   @ApiOperation({ summary: 'Upload a file' })
