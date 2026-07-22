@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsEnum, IsMongoId } from 'class-validator';
+import { IsString, IsNotEmpty, IsEnum, IsEmail } from 'class-validator';
 import { WorkspaceRole } from '../schemas/workspace.schema';
 
 export class CreateWorkspaceDto {
@@ -8,9 +8,9 @@ export class CreateWorkspaceDto {
 }
 
 export class AddMemberDto {
-  @IsMongoId({ message: 'Invalid user ID format' })
-  @IsNotEmpty({ message: 'User ID cannot be empty' })
-  userId: string;
+  @IsEmail({}, { message: 'Invalid email format' })
+  @IsNotEmpty({ message: 'Email cannot be empty' })
+  email: string;
 
   @IsEnum(WorkspaceRole, { message: 'Role must be owner, editor, or viewer' })
   role: WorkspaceRole;

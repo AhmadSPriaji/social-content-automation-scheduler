@@ -117,7 +117,7 @@ describe('End-to-End Test (e2e)', () => {
       await request(app.getHttpServer())
         .post(`/workspaces/${workspaceId}/members`)
         .set('Cookie', user1Cookies)
-        .send({ userId: user2Id, role: 'viewer' })
+        .send({ email: 'user2@example.com', role: 'viewer' })
         .expect(201);
     });
   });

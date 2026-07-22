@@ -24,6 +24,6 @@ export class WorkspacesController {
     @Param('workspaceId') workspaceId: string,
     @Body() body: AddMemberDto,
   ) {
-    return this.workspacesService.addMember(workspaceId, body.userId, body.role);
+    return this.workspacesService.addMember(workspaceId, body.email, body.role);
   }
 }
