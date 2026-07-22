@@ -15,6 +15,11 @@ export class WorkspacesService {
     return this.workspaceModel.findById(id).exec();
   }
 
+  async findAllForUser(userId: string): Promise<Workspace[]> {
+    // Find workspaces where members array contains an object with this userId
+    return this.workspaceModel.find({ 'members.userId': new Types.ObjectId(userId) }).exec();
+  }
+
   async create(name: string, userId: string): Promise<Workspace> {
     const newWorkspace = new this.workspaceModel({
       name,

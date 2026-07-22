@@ -181,4 +181,28 @@ describe('End-to-End Test (e2e)', () => {
       expect(res.body.message).toBe('Post successfully scheduled');
     });
   });
+
+  describe('Workspaces Read APIs', () => {
+    it('GET /workspaces - User 1 fetches workspaces', async () => {
+      const res = await request(app.getHttpServer())
+        .get('/workspaces')
+        .set('Cookie', user1Cookies)
+        .expect(200);
+      
+      expect(Array.isArray(res.body)).toBe(true);
+      expect(res.body.length).toBeGreaterThanOrEqual(1);
+      expect(res.body[0].name).toBe('User 1 Workspace');
+    });
+  });
+
+  describe('Authentication Logout API', () => {
+    it('POST /auth/logout - User 1 logs out', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Cookie', user1Cookies)
+        .expect(200);
+      
+      expect(res.body.message).toBe('Logged out successfully');
+    });
+  });
 });
