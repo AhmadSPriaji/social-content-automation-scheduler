@@ -15,6 +15,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -64,17 +65,19 @@ export function Topbar() {
                 {activeWorkspace?.name || 'Select Workspace'}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {workspaces.map((ws) => (
-                <DropdownMenuItem
-                  key={ws._id}
-                  onClick={() => setActiveWorkspace(ws._id)}
-                  className={ws._id === activeWorkspaceId ? 'bg-accent' : ''}
-                >
-                  {ws.name}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {workspaces.map((ws) => (
+                  <DropdownMenuItem
+                    key={ws._id}
+                    onClick={() => setActiveWorkspace(ws._id)}
+                    className={ws._id === activeWorkspaceId ? 'bg-accent' : ''}
+                  >
+                    {ws.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push('/workspaces/new')}>
                 + Create Workspace
@@ -92,14 +95,16 @@ export function Topbar() {
             <span className="sr-only">Toggle user menu</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">My Account</p>
-                <p className="text-xs leading-none text-muted-foreground">
-                  {user?.email || 'user@example.com'}
-                </p>
-              </div>
-            </DropdownMenuLabel>
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">My Account</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email || 'user@example.com'}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => router.push('/settings')}>
               <Settings className="mr-2 h-4 w-4" />
