@@ -52,7 +52,7 @@ export default function DashboardPage() {
   const userRole = activeWorkspace?.members.find((m) => m.userId === user?._id)?.role;
   const isViewer = userRole === 'viewer';
 
-  const { data: posts = [], isLoading, refetch } = useQuery<Post[]>({
+  const { data: posts = [], isLoading, isError, refetch } = useQuery<Post[]>({
     queryKey: ['posts', activeWorkspaceId],
     queryFn: async () => {
       if (!activeWorkspaceId) return [];
@@ -142,6 +142,12 @@ export default function DashboardPage() {
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
                     Loading posts...
+                  </TableCell>
+                </TableRow>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-destructive">
+                    Failed to load posts. Please try refreshing the page.
                   </TableCell>
                 </TableRow>
               ) : filteredPosts.length === 0 ? (
