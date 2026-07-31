@@ -6,6 +6,8 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { CreatePostModal } from '@/components/dashboard/create-post-modal';
+import { SchedulePostModal } from '@/components/dashboard/schedule-post-modal';
+import { EditPostModal } from '@/components/dashboard/edit-post-modal';
 import { format } from 'date-fns';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -39,6 +41,11 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const { activeWorkspaceId, workspaces } = useWorkspaceStore();
   const [activeTab, setActiveTab] = useState('all');
+  
+  // Modal states
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
 
   const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
   const userRole = activeWorkspace?.members.find((m) => m.userId === user?._id)?.role;
@@ -52,7 +59,6 @@ export default function DashboardPage() {
       return res.data;
     },
     enabled: !!activeWorkspaceId,
-    // Add polling for real-time updates as requested in PRD
     refetchInterval: 3000, 
   });
 
@@ -72,6 +78,26 @@ export default function DashboardPage() {
       default:
         return <Badge variant="secondary">Draft</Badge>;
     }
+  };
+
+  const handleDelete = async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this post?')) return;
+    try {
+      await api.delete(`/posts/${postId}`);
+      refetch();
+    } catch (error) {
+      console.error('Failed to delete post', error);
+    }
+  };
+
+  const openScheduleModal = (post: Post) => {
+    setSelectedPost(post);
+    setScheduleModalOpen(true);
+  };
+
+  const openEditModal = (post: Post) => {
+    setSelectedPost(post);
+    setEditModalOpen(true);
   };
 
   return (
@@ -152,8 +178,20 @@ export default function DashboardPage() {
                           <DropdownMenuItem onClick={() => {}}>View Details</DropdownMenuItem>
                           {!isViewer && (
                             <>
-                              <DropdownMenuItem>Edit Post</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive focus:text-destructive">
+                              {post.status === 'draft' && (
+                                <>
+                                  <DropdownMenuItem onClick={() => openScheduleModal(post)}>
+                                    Schedule Post
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => openEditModal(post)}>
+                                    Edit Post
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              <DropdownMenuItem 
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => handleDelete(post._id)}
+                              >
                                 Delete
                               </DropdownMenuItem>
                             </>
@@ -168,6 +206,19 @@ export default function DashboardPage() {
           </Table>
         </div>
       </Tabs>
+
+      <SchedulePostModal 
+        post={selectedPost} 
+        open={scheduleModalOpen} 
+        onOpenChange={setScheduleModalOpen}
+        onSuccess={() => refetch()}
+      />
+      <EditPostModal 
+        post={selectedPost} 
+        open={editModalOpen} 
+        onOpenChange={setEditModalOpen}
+        onSuccess={() => refetch()}
+      />
     </div>
   );
 }
