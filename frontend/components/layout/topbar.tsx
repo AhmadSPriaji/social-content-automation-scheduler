@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Menu, LogOut, Settings, User } from 'lucide-react';
 import { Sidebar } from './sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { toast } from 'sonner';
 
 import {
   DropdownMenu,
@@ -30,8 +31,9 @@ export function Topbar() {
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
-    } catch (e) {
-      console.error('Logout failed', e);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Logout failed');
+      console.error('Logout failed', error);
     } finally {
       setAuth(null);
       router.push('/login');

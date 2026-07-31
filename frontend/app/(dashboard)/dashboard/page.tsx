@@ -9,6 +9,7 @@ import { CreatePostModal } from '@/components/dashboard/create-post-modal';
 import { SchedulePostModal } from '@/components/dashboard/schedule-post-modal';
 import { EditPostModal } from '@/components/dashboard/edit-post-modal';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -84,8 +85,10 @@ export default function DashboardPage() {
     if (!confirm('Are you sure you want to delete this post?')) return;
     try {
       await api.delete(`/posts/${postId}`);
+      toast.success('Post deleted successfully');
       refetch();
-    } catch (error) {
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to delete post');
       console.error('Failed to delete post', error);
     }
   };
