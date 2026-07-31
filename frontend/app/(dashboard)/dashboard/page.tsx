@@ -60,7 +60,6 @@ export default function DashboardPage() {
       return res.data;
     },
     enabled: !!activeWorkspaceId,
-    refetchInterval: 3000, 
   });
 
   const filteredPosts = posts.filter((post) => {

@@ -55,7 +55,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
 
     initSession();
-  }, [user, setAuth, setWorkspaces, setActiveWorkspace, activeWorkspaceId, router, isPublicOrSetupRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Optionally return a full page loader while hydrating session
   // But for better UX, we'll render children immediately and let middleware handle redirects.
