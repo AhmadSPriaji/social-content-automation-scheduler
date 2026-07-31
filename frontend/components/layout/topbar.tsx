@@ -2,8 +2,12 @@
 
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
+import { api } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { Menu, LogOut, Settings, User } from 'lucide-react';
+import { Sidebar } from './sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,77 +15,108 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  DropdownMenuGroup,
 } from '@/components/ui/dropdown-menu';
-import { ChevronDown, Menu } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Button } from '@/components/ui/button';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { useState } from 'react';
 
 export function Topbar() {
-  const { user, logout } = useAuthStore();
+  const { user, setAuth } = useAuthStore();
   const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
   const router = useRouter();
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-  const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
-  
-  const handleLogout = () => {
-    logout();
-    router.push('/login');
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch (e) {
+      console.error('Logout failed', e);
+    } finally {
+      setAuth(null);
+      router.push('/login');
+    }
   };
 
+  const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
+
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-muted/40 px-4 lg:h-[60px] lg:px-6 justify-between">
+    <header className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b bg-background px-4 md:px-6">
       <div className="flex items-center gap-4">
-        {/* Mobile menu toggle (placeholder for now) */}
-        <Button variant="outline" size="icon" className="md:hidden shrink-0">
-          <Menu className="h-5 w-5" />
-          <span className="sr-only">Toggle navigation menu</span>
-        </Button>
+        {/* Mobile menu trigger */}
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+          <SheetTrigger className="md:hidden inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 hover:bg-accent hover:text-accent-foreground h-10 w-10">
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle Sidebar</span>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-72">
+            <Sidebar className="block w-full border-r-0" />
+          </SheetContent>
+        </Sheet>
         
-        {/* Workspace Switcher */}
+        <div className="hidden md:flex font-bold text-lg tracking-tight">Social Scheduler</div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        {/* Workspace Selector */}
         {workspaces.length > 0 && (
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
+            <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
                 {activeWorkspace?.name || 'Select Workspace'}
-                <ChevronDown className="h-4 w-4 opacity-50" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-[200px]">
-              <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {workspaces.map((ws) => (
-                <DropdownMenuItem 
-                  key={ws._id}
-                  onClick={() => setActiveWorkspace(ws._id)}
-                  className={activeWorkspaceId === ws._id ? 'bg-accent' : ''}
-                >
-                  {ws.name}
-                </DropdownMenuItem>
-              ))}
+            <DropdownMenuContent align="end">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {workspaces.map((ws) => (
+                  <DropdownMenuItem
+                    key={ws._id}
+                    onClick={() => setActiveWorkspace(ws._id)}
+                    className={ws._id === activeWorkspaceId ? 'bg-accent' : ''}
+                  >
+                    {ws.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => router.push('/workspaces/new')}>
-                Create Workspace...
+                + Create Workspace
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         )}
-      </div>
 
-      {/* User Profile Menu */}
-      <DropdownMenu>
-        <DropdownMenuTrigger className="inline-flex items-center justify-center gap-2 whitespace-nowrap text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 w-10 rounded-full">
+        {/* User Profile */}
+        <DropdownMenu>
+          <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 w-10 rounded-full ml-2">
             <Avatar className="h-8 w-8">
               <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
             <span className="sr-only">Toggle user menu</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>{user?.email || 'My Account'}</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>Settings</DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={handleLogout} className="text-red-500 cursor-pointer">
-            Logout
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuGroup>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">My Account</p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {user?.email || 'user@example.com'}
+                  </p>
+                </div>
+              </DropdownMenuLabel>
+            </DropdownMenuGroup>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push('/settings')}>
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Settings</span>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Log out</span>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
     </header>
   );
 }
