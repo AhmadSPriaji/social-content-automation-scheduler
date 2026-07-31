@@ -73,7 +73,7 @@ export default function NewWorkspacePage() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button type="submit" className="w-full" isLoading={isLoading}>
               {isLoading ? 'Creating...' : 'Create Workspace'}
             </Button>
           </CardFooter>

@@ -178,7 +178,7 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
             <Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={isLoading || isUploading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || isUploading}>
+            <Button type="submit" isLoading={isLoading || isUploading}>
               {isLoading ? 'Saving...' : 'Save Draft'}
             </Button>
           </DialogFooter>

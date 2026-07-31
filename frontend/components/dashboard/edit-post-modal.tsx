@@ -181,7 +181,7 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isLoading || isUploading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || isUploading}>
+            <Button type="submit" isLoading={isLoading || isUploading}>
               {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
