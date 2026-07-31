@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Res, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
@@ -42,6 +42,15 @@ export class AuthController {
     const tokens = await this.authService.refresh(refreshToken);
     this.setCookies(res, tokens.accessToken, tokens.refreshToken);
     return { message: 'Token refreshed successfully' };
+  }
+
+  @ApiCookieAuth()
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'Returns the current user profile' })
+  @Get('me')
+  getProfile(@Req() req: Request) {
+    return req.user;
   }
 
   @ApiCookieAuth()
