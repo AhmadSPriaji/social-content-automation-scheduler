@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Req, Get, Query, Res } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { WorkspacesService } from './workspaces.service';
 import { CreateWorkspaceDto, AddMemberDto } from './dto/workspaces.dto';
@@ -60,5 +60,21 @@ export class WorkspacesController {
   @Post(':workspaceId/integrations/mock-oauth')
   async mockOauth(@Param('workspaceId') workspaceId: string) {
     return this.workspacesService.mockOauthConnect(workspaceId);
+  }
+
+  @ApiOperation({ summary: 'Generate Reddit OAuth link' })
+  @ApiResponse({ status: 200, description: 'Returns URL to redirect to.' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
+  @Get(':workspaceId/reddit/login')
+  async redditLogin(@Param('workspaceId') workspaceId: string) {
+    return this.workspacesService.generateRedditAuthLink(workspaceId);
+  }
+
+  @ApiOperation({ summary: 'Reddit OAuth Callback' })
+  @ApiResponse({ status: 200, description: 'OAuth callback handled.' })
+  @Get('reddit/callback')
+  async redditCallback(@Query('state') state: string, @Query('code') code: string) {
+    return this.workspacesService.handleRedditCallback(state, code);
   }
 }

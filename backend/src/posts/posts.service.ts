@@ -4,6 +4,7 @@ import { Model, Types } from 'mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Post, PostDocument } from './schemas/post.schema';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { CreatePostDto, UpdatePostDto } from './dto/post.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
@@ -137,5 +138,41 @@ export class PostsService {
       shares: Math.floor(baseViews * (Math.random() * 0.05 + 0.01)), // 1-6% of views
       comments: Math.floor(baseViews * (Math.random() * 0.08 + 0.02)), // 2-10% of views
     };
+  }
+
+  async getDeadLetters(workspaceId: string): Promise<Post[]> {
+    return this.postModel.find({ 
+      workspaceId: new Types.ObjectId(workspaceId),
+      status: 'failed',
+    }).exec();
+  }
+
+  async generateAiCaption(prompt: string): Promise<{ caption: string }> {
+    // This is a mock AI generation. In a real integration, this would call OpenAI or another LLM API.
+    const mockCaptions = [
+      `Check out our latest update! #innovation #${prompt.replace(/\s+/g, '')}`,
+      `Exciting news to share about ${prompt} today. Stay tuned for more details!`,
+      `We've been working hard on ${prompt}. Here's what you need to know. 🚀`,
+      `Did you know? ${prompt} is changing the way we work. #trends`,
+    ];
+    
+    // Simulate slight delay for AI processing
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const randomCaption = mockCaptions[Math.floor(Math.random() * mockCaptions.length)];
+    return { caption: randomCaption };
+  }
+
+  @Cron(CronExpression.EVERY_HOUR)
+  async handleCronAnalyticsSync() {
+    // Simulate pulling real analytics periodically for all published posts
+    const publishedPosts = await this.postModel.find({ status: 'published' }).exec();
+    
+    for (const post of publishedPosts) {
+      // In real scenario, we would make a call to the connected provider API
+      // Here we just log to show the cron is working
+      // console.log(`Syncing analytics for post ${post._id}`);
+      // And we might update the DB with new analytics numbers if we stored them in the DB
+    }
   }
 }

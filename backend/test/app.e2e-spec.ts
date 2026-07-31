@@ -216,6 +216,7 @@ describe('End-to-End Test (e2e)', () => {
     it('POST /posts/:id/webhook - Simulate Webhook', async () => {
       const res = await request(app.getHttpServer())
         .post(`/posts/${postId}/webhook`)
+        .set('x-hub-signature-256', 'mock-valid-signature')
         .send({
           event: 'success',
           details: 'Post successfully published on external platform',

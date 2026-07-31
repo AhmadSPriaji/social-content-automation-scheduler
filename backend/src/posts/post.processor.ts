@@ -3,6 +3,7 @@ import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { PostsService } from './posts.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { WorkspacesService } from '../workspaces/workspaces.service';
 
 @Processor('publish-post')
 export class PostProcessor extends WorkerHost {
@@ -11,6 +12,7 @@ export class PostProcessor extends WorkerHost {
   constructor(
     private readonly postsService: PostsService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly workspacesService: WorkspacesService,
   ) {
     super();
   }
@@ -22,12 +24,46 @@ export class PostProcessor extends WorkerHost {
     await this.auditLogsService.createLog('publish_attempt', `Attempt ${attempt} to publish post`, { postId });
 
     try {
-      // 1. Simulate API delay
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const post = await this.postsService.findById(postId);
+      if (!post) throw new Error('Post not found');
 
-      // 2. Simulate 20% random failure
-      if (Math.random() < 0.2) {
-        throw new Error('API Timeout / Connection Refused');
+      const workspace = await this.workspacesService.findById(post.workspaceId.toString());
+      if (!workspace) throw new Error('Workspace not found');
+
+      const redditAccount = workspace.connectedAccounts.find(acc => acc.provider === 'reddit');
+      if (!redditAccount) {
+        throw new Error('Reddit account not connected to this workspace');
+      }
+
+      const accessToken = redditAccount.accessToken;
+      // We stored the username in the refresh token field as "username::token"
+      const username = redditAccount.refreshToken ? redditAccount.refreshToken.split('::')[0] : '';
+      
+      if (!username) {
+        throw new Error('Could not find Reddit username for this workspace');
+      }
+
+      // Use the first 50 characters (or first line) as the title
+      const title = post.content.split('\n')[0].substring(0, 50);
+
+      const response = await fetch('https://oauth.reddit.com/api/submit', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'User-Agent': 'SocialContentScheduler/1.0.0',
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          sr: `u_${username}`,
+          kind: 'self',
+          title: title,
+          text: post.content,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Reddit API Error: ${response.status} - ${errorText}`);
       }
 
       // 3. Success: Update status to published

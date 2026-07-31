@@ -27,6 +27,7 @@ import { WorkspaceRolesGuard } from '../common/guards/workspace-roles.guard';
 import { PostOwnershipGuard } from '../common/guards/post-ownership.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { WorkspaceRole } from '../workspaces/schemas/workspace.schema';
+import { WebhookSignatureGuard } from '../common/guards/webhook-signature.guard';
 
 @ApiTags('posts')
 @Controller('posts')
@@ -53,6 +54,18 @@ export class PostsController {
       throw new BadRequestException('workspaceId query parameter is required');
     }
     return this.postsService.findAllByWorkspace(workspaceId);
+  }
+
+  @ApiOperation({ summary: 'Get dead-letter posts (failed)' })
+  @ApiResponse({ status: 200, description: 'List of dead-letter posts.' })
+  @UseGuards(JwtAuthGuard, WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR, WorkspaceRole.VIEWER)
+  @Get('dead-letters')
+  async getDeadLetters(@Query('workspaceId') workspaceId: string) {
+    if (!workspaceId) {
+      throw new BadRequestException('workspaceId query parameter is required');
+    }
+    return this.postsService.getDeadLetters(workspaceId);
   }
 
   @ApiOperation({ summary: 'Get audit logs for a post' })
@@ -92,8 +105,20 @@ export class PostsController {
     };
   }
 
+  @ApiOperation({ summary: 'Generate AI Caption' })
+  @ApiResponse({ status: 201, description: 'Generated caption returned.' })
+  @UseGuards(JwtAuthGuard)
+  @Post('generate-caption')
+  async generateAiCaption(@Body() body: { prompt: string }) {
+    if (!body.prompt) {
+      throw new BadRequestException('prompt is required in the body');
+    }
+    return this.postsService.generateAiCaption(body.prompt);
+  }
+
   @ApiOperation({ summary: 'Simulate Webhook Callback' })
   @ApiResponse({ status: 200, description: 'Webhook processed.' })
+  @UseGuards(WebhookSignatureGuard)
   @Post(':id/webhook')
   async webhookCallback(
     @Param('id') id: string,

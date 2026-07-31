@@ -25,6 +25,22 @@ export class Workspace extends Document {
 
   @Prop({ type: [WorkspaceMemberSchema], default: [] })
   members: WorkspaceMember[];
+
+  @Prop({
+    type: [
+      {
+        provider: { type: String, required: true },
+        accessToken: { type: String, required: true },
+        refreshToken: { type: String, required: false },
+      },
+    ],
+    default: [],
+  })
+  connectedAccounts: {
+    provider: string;
+    accessToken: string;
+    refreshToken?: string;
+  }[];
 }
 
 export const WorkspaceSchema = SchemaFactory.createForClass(Workspace);
