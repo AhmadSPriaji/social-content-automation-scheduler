@@ -506,6 +506,12 @@ export default function DashboardPage() {
         post={selectedPost}
         open={viewModalOpen}
         onOpenChange={setViewModalOpen}
+        onEdit={openEditModal}
+        onSchedule={openScheduleModal}
+        onPublishNow={confirmPublishNow}
+        onCancelSchedule={confirmCancelSchedule}
+        onDuplicate={handleDuplicate}
+        onDelete={confirmDelete}
       />
 
       <AlertDialog 

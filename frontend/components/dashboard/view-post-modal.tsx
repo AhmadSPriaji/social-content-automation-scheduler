@@ -14,6 +14,22 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button, buttonVariants } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { 
+  MoreHorizontal, 
+  Pencil, 
+  Calendar, 
+  Send, 
+  Copy, 
+  XCircle, 
+  Trash2
+} from 'lucide-react';
 
 interface Post {
   _id: string;
@@ -29,9 +45,25 @@ interface ViewPostModalProps {
   post: Post | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEdit?: (post: Post) => void;
+  onSchedule?: (post: Post) => void;
+  onDelete?: (postId: string) => void;
+  onCancelSchedule?: (postId: string) => void;
+  onPublishNow?: (postId: string) => void;
+  onDuplicate?: (postId: string) => void;
 }
 
-export function ViewPostModal({ post, open, onOpenChange }: ViewPostModalProps) {
+export function ViewPostModal({ 
+  post, 
+  open, 
+  onOpenChange,
+  onEdit,
+  onSchedule,
+  onDelete,
+  onCancelSchedule,
+  onPublishNow,
+  onDuplicate
+}: ViewPostModalProps) {
   const [analytics, setAnalytics] = useState<any>(null);
   const [loadingAnalytics, setLoadingAnalytics] = useState(false);
 
@@ -72,11 +104,54 @@ export function ViewPostModal({ post, open, onOpenChange }: ViewPostModalProps) 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>Post Details</DialogTitle>
-          <DialogDescription>
-            Detailed view of your post and its performance.
-          </DialogDescription>
+        <DialogHeader className="flex flex-row items-start justify-between pr-6">
+          <div>
+            <DialogTitle>Post Details</DialogTitle>
+            <DialogDescription>
+              Detailed view of your post and its performance.
+            </DialogDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger className={buttonVariants({ variant: 'outline', size: 'icon', className: 'h-8 w-8 shrink-0' })}>
+                <MoreHorizontal className="h-4 w-4" />
+                <span className="sr-only">More Options</span>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {(post.status === 'draft' || post.status === 'failed') && onEdit && (
+                  <DropdownMenuItem onClick={() => { onOpenChange(false); onEdit(post); }}>
+                    <Pencil className="h-4 w-4 mr-2" /> Edit Post
+                  </DropdownMenuItem>
+                )}
+                {(post.status === 'draft' || post.status === 'failed' || post.status === 'scheduled') && onSchedule && (
+                  <DropdownMenuItem onClick={() => { onOpenChange(false); onSchedule(post); }}>
+                    <Calendar className="h-4 w-4 mr-2" /> 
+                    {post.status === 'scheduled' ? 'Reschedule' : 'Schedule Post'}
+                  </DropdownMenuItem>
+                )}
+                {(post.status === 'draft' || post.status === 'failed') && onPublishNow && (
+                  <DropdownMenuItem onClick={() => { onOpenChange(false); onPublishNow(post._id); }}>
+                    <Send className="h-4 w-4 mr-2" /> Publish Now
+                  </DropdownMenuItem>
+                )}
+                {post.status === 'scheduled' && onCancelSchedule && (
+                  <DropdownMenuItem onClick={() => { onOpenChange(false); onCancelSchedule(post._id); }}>
+                    <XCircle className="h-4 w-4 mr-2 text-orange-500" /> Cancel Schedule
+                  </DropdownMenuItem>
+                )}
+                {onDuplicate && (
+                  <DropdownMenuItem onClick={() => { onOpenChange(false); onDuplicate(post._id); }}>
+                    <Copy className="h-4 w-4 mr-2" /> Duplicate Post
+                  </DropdownMenuItem>
+                )}
+                {onDelete && (
+                  <DropdownMenuItem onClick={() => { onOpenChange(false); onDelete(post._id); }} className="text-destructive focus:text-destructive">
+                    <Trash2 className="h-4 w-4 mr-2" /> Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </DialogHeader>
         
         <ScrollArea className="max-h-[60vh] mt-4 pr-4">

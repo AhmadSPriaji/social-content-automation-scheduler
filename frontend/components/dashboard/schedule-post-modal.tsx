@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
+import { format } from 'date-fns';
 import { toast } from 'sonner';
 
 import {
@@ -21,11 +22,25 @@ interface SchedulePostModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
+  prefillDate?: Date | null;
 }
 
-export function SchedulePostModal({ post, open, onOpenChange, onSuccess }: SchedulePostModalProps) {
+export function SchedulePostModal({ post, open, onOpenChange, onSuccess, prefillDate }: SchedulePostModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [scheduledDate, setScheduledDate] = useState('');
+
+  useEffect(() => {
+    if (open) {
+      if (prefillDate) {
+        // Set time to 12:00 by default for pre-filled dates
+        const prefill = new Date(prefillDate);
+        prefill.setHours(12, 0, 0, 0);
+        setScheduledDate(format(prefill, "yyyy-MM-dd'T'HH:mm"));
+      } else {
+        setScheduledDate('');
+      }
+    }
+  }, [open, prefillDate]);
 
   if (!post) return null;
 
