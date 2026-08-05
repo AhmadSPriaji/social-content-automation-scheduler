@@ -12,6 +12,9 @@ export class Post {
   authorId!: Types.ObjectId;
 
   @Prop({ required: true })
+  title!: string;
+
+  @Prop({ required: true })
   content!: string;
 
   @Prop({ type: [String], default: [] })
@@ -24,6 +27,9 @@ export class Post {
   })
   status!: string;
 
+  @Prop({ type: String })
+  errorReason?: string;
+
   @Prop({ type: Date })
   scheduledAt?: Date;
 
@@ -32,3 +38,5 @@ export class Post {
 }
 
 export const PostSchema = SchemaFactory.createForClass(Post);
+
+PostSchema.index({ title: 1, authorId: 1, workspaceId: 1 }, { unique: true });

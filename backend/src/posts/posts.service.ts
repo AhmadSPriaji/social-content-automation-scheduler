@@ -6,10 +6,13 @@ import { Queue } from 'bullmq';
 import { Post, PostDocument } from './schemas/post.schema';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CreatePostDto, UpdatePostDto } from './dto/post.dto';
+import { Subject } from 'rxjs';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 
 @Injectable()
 export class PostsService {
+  public postUpdates$ = new Subject<{ event: string; data: any }>();
+
   constructor(
     @InjectModel(Post.name) private postModel: Model<PostDocument>,
     @InjectQueue('publish-post') private publishQueue: Queue,
@@ -26,11 +29,17 @@ export class PostsService {
       authorId: new Types.ObjectId(authorId),
       workspaceId: new Types.ObjectId(createPostDto.workspaceId),
     });
-    const saved = await newPost.save();
-
-    await this.auditLogsService.createLog('post_created', `Post created by user ${authorId}`, { postId: saved._id.toString() });
-
-    return saved;
+    
+    try {
+      const saved = await newPost.save();
+      await this.auditLogsService.createLog('post_created', `Post created by user ${authorId}`, { postId: saved._id.toString() });
+      return saved;
+    } catch (error: any) {
+      if (error.code === 11000) {
+        throw new BadRequestException('Judul post sudah digunakan di workspace ini');
+      }
+      throw error;
+    }
   }
 
   async findAllByWorkspace(workspaceId: string): Promise<Post[]> {
@@ -42,16 +51,36 @@ export class PostsService {
   }
 
   async update(id: string, updatePostDto: UpdatePostDto): Promise<Post> {
-    const updatedPost = await this.postModel
-      .findByIdAndUpdate(id, updatePostDto, { new: true })
-      .exec();
-    if (!updatedPost) {
+    const post = await this.findById(id);
+    if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
 
-    await this.auditLogsService.createLog('post_updated', `Post updated`, { postId: id });
+    let additionalUpdates: any = {};
+    if (post.status === 'failed') {
+      additionalUpdates = { status: 'draft', $unset: { errorReason: 1 } };
+      
+      // Emit event for real-time updates
+      this.postUpdates$.next({
+        event: 'post_updated',
+        data: { postId: id, status: 'draft' },
+      });
+    }
 
-    return updatedPost;
+    try {
+      const updatedPost = await this.postModel
+        .findByIdAndUpdate(id, { ...updatePostDto, ...additionalUpdates }, { new: true })
+        .exec();
+
+      await this.auditLogsService.createLog('post_updated', `Post updated`, { postId: id });
+
+      return updatedPost!;
+    } catch (error: any) {
+      if (error.code === 11000) {
+        throw new BadRequestException('Judul post sudah digunakan di workspace ini');
+      }
+      throw error;
+    }
   }
 
   async delete(id: string): Promise<void> {
@@ -63,8 +92,18 @@ export class PostsService {
     await this.auditLogsService.createLog('post_deleted', `Post deleted`, { postId: id });
   }
 
-  async updateStatus(id: string, status: string): Promise<void> {
-    await this.postModel.findByIdAndUpdate(id, { status }).exec();
+  async updateStatus(id: string, status: string, errorReason?: string): Promise<void> {
+    const updateData: any = { status };
+    if (errorReason) {
+      updateData.errorReason = errorReason;
+    }
+    await this.postModel.findByIdAndUpdate(id, updateData).exec();
+    
+    // Emit event for real-time updates
+    this.postUpdates$.next({
+      event: 'post_updated',
+      data: { postId: id, status, errorReason },
+    });
   }
 
   async incrementRetryCount(id: string): Promise<void> {
@@ -86,10 +125,17 @@ export class PostsService {
     await this.updateStatus(id, 'scheduled');
     await this.auditLogsService.createLog('post_scheduled', `Post scheduled for publication at ${post.scheduledAt.toISOString()}`, { postId: id });
 
+    // Remove any existing job for this post (useful for rescheduling)
+    const existingJob = await this.publishQueue.getJob(`post-${id}`);
+    if (existingJob) {
+      await existingJob.remove();
+    }
+
     await this.publishQueue.add(
       'publish',
       { postId: id },
       {
+        jobId: `post-${id}`,
         delay,
         attempts: 3,
         backoff: {
@@ -98,6 +144,93 @@ export class PostsService {
         },
       },
     );
+  }
+
+  async cancelSchedule(id: string): Promise<void> {
+    const post = await this.findById(id);
+    if (!post) {
+      throw new NotFoundException(`Post with ID ${id} not found`);
+    }
+
+    if (post.status !== 'scheduled') {
+      throw new BadRequestException('Only scheduled posts can be cancelled');
+    }
+
+    // Remove the job from the queue
+    const job = await this.publishQueue.getJob(`post-${id}`);
+    if (job) {
+      await job.remove();
+    }
+
+    // Revert status to draft and remove scheduledAt
+    await this.postModel.findByIdAndUpdate(id, {
+      $unset: { scheduledAt: 1 },
+      $set: { status: 'draft' }
+    }).exec();
+
+    await this.auditLogsService.createLog('post_schedule_cancelled', `Post schedule cancelled`, { postId: id });
+
+    // Emit real-time event
+    this.postUpdates$.next({
+      event: 'post_updated',
+      data: { postId: id, status: 'draft' },
+    });
+  }
+
+  async publishNow(id: string): Promise<void> {
+    const post = await this.findById(id);
+    if (!post) throw new NotFoundException(`Post with ID ${id} not found`);
+    
+    await this.postModel.findByIdAndUpdate(id, {
+      $unset: { scheduledAt: 1, errorReason: 1 },
+      $set: { status: 'scheduled' }
+    }).exec();
+
+    this.postUpdates$.next({
+      event: 'post_updated',
+      data: { postId: id, status: 'scheduled' },
+    });
+
+    const existingJob = await this.publishQueue.getJob(`post-${id}`);
+    if (existingJob) {
+      await existingJob.remove();
+    }
+
+    await this.publishQueue.add(
+      'publish',
+      { postId: id },
+      {
+        jobId: `post-${id}`,
+        delay: 0,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+      },
+    );
+
+    await this.auditLogsService.createLog('post_publish_now', `Post submitted for immediate publication`, { postId: id });
+  }
+
+  async duplicate(id: string, userId: string): Promise<Post> {
+    const post = await this.findById(id);
+    if (!post) throw new NotFoundException(`Post with ID ${id} not found`);
+
+    const duplicatedPost = new this.postModel({
+      workspaceId: post.workspaceId,
+      authorId: new Types.ObjectId(userId),
+      title: `${post.title} (Copy ${Date.now().toString().slice(-4)})`,
+      content: post.content,
+      mediaUrls: [...post.mediaUrls],
+      status: 'draft',
+    });
+
+    const saved = await duplicatedPost.save();
+
+    await this.auditLogsService.createLog('post_duplicated', `Post duplicated from ${id}`, { postId: saved._id.toString() });
+
+    return saved;
   }
 
   async handleWebhook(id: string, payload: { event: string; details: string }) {
@@ -115,7 +248,7 @@ export class PostsService {
 
     // React to the webhook (e.g. if the external platform banned the post)
     if (payload.event === 'banned' || payload.event === 'failed') {
-      await this.updateStatus(id, 'failed');
+      await this.updateStatus(id, 'failed', payload.details);
     } else if (payload.event === 'success' && post.status !== 'published') {
       await this.updateStatus(id, 'published');
     }
@@ -129,14 +262,11 @@ export class PostsService {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
 
-    // Generate random but "believable" numbers for analytics
-    const baseViews = Math.floor(Math.random() * 5000) + 100;
-    
     return {
-      views: baseViews,
-      likes: Math.floor(baseViews * (Math.random() * 0.15 + 0.05)), // 5-20% of views
-      shares: Math.floor(baseViews * (Math.random() * 0.05 + 0.01)), // 1-6% of views
-      comments: Math.floor(baseViews * (Math.random() * 0.08 + 0.02)), // 2-10% of views
+      views: 0,
+      likes: 0,
+      shares: 0,
+      comments: 0,
     };
   }
 

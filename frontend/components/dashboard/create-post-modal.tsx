@@ -25,6 +25,7 @@ import { Progress } from '@/components/ui/progress';
 import { Plus } from 'lucide-react';
 
 const postSchema = z.object({
+  title: z.string().min(1, 'Judul post wajib diisi').max(100, 'Maksimal 100 karakter'),
   content: z.string().optional(),
 });
 
@@ -46,6 +47,7 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
   const form = useForm<PostFormValues>({
     resolver: zodResolver(postSchema),
     defaultValues: {
+      title: '',
       content: '',
     },
   });
@@ -100,6 +102,7 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
     try {
       await api.post('/posts', {
         workspaceId: activeWorkspaceId,
+        title: data.title,
         content: data.content,
         mediaUrls: uploadedMediaUrls,
       });
@@ -131,6 +134,18 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              placeholder="Post Title"
+              {...form.register('title')}
+            />
+            {form.formState.errors.title && (
+              <p className="text-sm text-destructive">{form.formState.errors.title.message}</p>
+            )}
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="content">Content</Label>
             <Textarea

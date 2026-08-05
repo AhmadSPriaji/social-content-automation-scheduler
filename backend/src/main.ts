@@ -9,7 +9,9 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Security
-  app.use(helmet());
+  app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }));
   app.use(cookieParser());
   app.enableCors({
     origin: true, // Allow all origins for now, should restrict to frontend domain in production

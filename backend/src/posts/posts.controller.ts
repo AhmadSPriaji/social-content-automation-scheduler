@@ -12,7 +12,11 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Sse,
+  MessageEvent,
 } from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import type { Request } from 'express';
@@ -42,6 +46,16 @@ export class PostsController {
   async create(@Req() req: Request, @Body() createPostDto: CreatePostDto) {
     const user: any = req.user;
     return this.postsService.create(user.id, createPostDto);
+  }
+
+  @ApiOperation({ summary: 'Subscribe to real-time post updates' })
+  @Sse('events')
+  sendEvents(): Observable<MessageEvent> {
+    return this.postsService.postUpdates$.asObservable().pipe(
+      map((payload) => ({
+        data: payload,
+      })),
+    );
   }
 
   @ApiOperation({ summary: 'Get all posts for a workspace' })
@@ -102,6 +116,43 @@ export class PostsController {
     return {
       message: 'Post successfully scheduled',
       status: 'scheduled',
+    };
+  }
+
+  @ApiOperation({ summary: 'Cancel a scheduled post' })
+  @ApiResponse({ status: 200, description: 'Post schedule successfully cancelled.' })
+  @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Post(':id/cancel-schedule')
+  async cancelSchedule(@Param('id') id: string) {
+    await this.postsService.cancelSchedule(id);
+    return {
+      message: 'Post schedule successfully cancelled',
+      status: 'draft',
+    };
+  }
+
+  @ApiOperation({ summary: 'Publish a post immediately' })
+  @ApiResponse({ status: 200, description: 'Post successfully queued for immediate publication.' })
+  @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Post(':id/publish-now')
+  async publishNow(@Param('id') id: string) {
+    await this.postsService.publishNow(id);
+    return {
+      message: 'Post submitted for immediate publication',
+      status: 'scheduled',
+    };
+  }
+
+  @ApiOperation({ summary: 'Duplicate a post' })
+  @ApiResponse({ status: 201, description: 'Post successfully duplicated.' })
+  @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Post(':id/duplicate')
+  async duplicate(@Req() req: Request, @Param('id') id: string) {
+    const user: any = req.user;
+    const duplicatedPost = await this.postsService.duplicate(id, user.id);
+    return {
+      message: 'Post successfully duplicated',
+      post: duplicatedPost,
     };
   }
 
