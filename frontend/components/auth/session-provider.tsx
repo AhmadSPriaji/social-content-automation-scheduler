@@ -5,6 +5,7 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { usePathname, useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 export function SessionProvider({ children }: { children: React.ReactNode }) {
   const { user, setAuth } = useAuthStore();
@@ -41,9 +42,12 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           // If logged in but no workspace, redirect to workspace creation
           router.push('/workspaces/new');
         }
-      } catch (error) {
+      } catch (error: any) {
         // If /auth/me fails, it probably means token is missing or invalid.
         // The api interceptor might have attempted a refresh. If it still fails, user is not logged in.
+        if (error.response?.status !== 401) {
+          toast.error(error.response?.data?.message || 'Failed to connect to the server');
+        }
         setAuth(null);
       } finally {
         setIsInitializing(false);
@@ -51,7 +55,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     }
 
     initSession();
-  }, [user, setAuth, setWorkspaces, setActiveWorkspace, activeWorkspaceId, router, isPublicOrSetupRoute]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Optionally return a full page loader while hydrating session
   // But for better UX, we'll render children immediately and let middleware handle redirects.

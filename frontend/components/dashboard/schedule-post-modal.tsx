@@ -89,7 +89,7 @@ export function SchedulePostModal({ post, open, onOpenChange, onSuccess }: Sched
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isLoading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" isLoading={isLoading}>
               {isLoading ? 'Scheduling...' : 'Schedule'}
             </Button>
           </DialogFooter>

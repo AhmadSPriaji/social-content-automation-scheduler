@@ -21,6 +21,12 @@ export function proxy(request: NextRequest) {
   }
 
   if (isAuthRoute && hasToken) {
+    if (request.nextUrl.searchParams.get('clear') === 'true') {
+      const response = NextResponse.next();
+      response.cookies.delete('accessToken');
+      response.cookies.delete('refreshToken');
+      return response;
+    }
     // Redirect to dashboard if trying to access login/register while authenticated
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

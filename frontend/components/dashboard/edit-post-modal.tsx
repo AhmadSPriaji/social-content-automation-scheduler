@@ -78,8 +78,9 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
 
       setUploadedMediaUrls((prev) => [...prev, response.data.url]);
       toast.success('Media uploaded successfully');
-    } catch (error) {
-      toast.error('Failed to upload media');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to upload media');
+      console.error('Upload media error:', error);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -108,8 +109,9 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
       toast.success('Post updated successfully');
       onOpenChange(false);
       if (onSuccess) onSuccess();
-    } catch (error) {
-      toast.error('Failed to update post');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update post');
+      console.error('Update post error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +181,7 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
             <Button variant="outline" type="button" onClick={() => onOpenChange(false)} disabled={isLoading || isUploading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || isUploading}>
+            <Button type="submit" isLoading={isLoading || isUploading}>
               {isLoading ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>

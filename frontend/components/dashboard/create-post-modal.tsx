@@ -74,8 +74,9 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
       // Assuming backend returns { url: '...' }
       setUploadedMediaUrls((prev) => [...prev, response.data.url]);
       toast.success('Media uploaded successfully');
-    } catch (error) {
-      toast.error('Failed to upload media');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to upload media');
+      console.error('Upload media error:', error);
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -108,8 +109,9 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
       form.reset();
       setUploadedMediaUrls([]);
       if (onSuccess) onSuccess();
-    } catch (error) {
-      toast.error('Failed to create post');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to create post');
+      console.error('Create post error:', error);
     } finally {
       setIsLoading(false);
     }
@@ -176,7 +178,7 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
             <Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={isLoading || isUploading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading || isUploading}>
+            <Button type="submit" isLoading={isLoading || isUploading}>
               {isLoading ? 'Saving...' : 'Save Draft'}
             </Button>
           </DialogFooter>

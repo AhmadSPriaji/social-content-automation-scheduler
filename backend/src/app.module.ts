@@ -50,10 +50,6 @@ import Redis from 'ioredis';
   providers: [
     AppService,
     {
-      provide: APP_GUARD,
-      useClass: ThrottlerGuard,
-    },
-    {
       provide: 'REDIS_CLIENT',
       useFactory: (configService: ConfigService) => {
         return new Redis(configService.get<string>('REDIS_URL') || 'redis://localhost:6379');
