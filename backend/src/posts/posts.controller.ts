@@ -93,6 +93,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Update a post' })
   @ApiResponse({ status: 200, description: 'Post updated successfully.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Put(':id')
   async update(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto) {
     return this.postsService.update(id, updatePostDto);
@@ -101,6 +102,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Delete a post' })
   @ApiResponse({ status: 200, description: 'Post deleted successfully.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Delete(':id')
   async remove(@Param('id') id: string) {
     await this.postsService.delete(id);
@@ -110,6 +112,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Schedule a post for publication' })
   @ApiResponse({ status: 201, description: 'Post successfully scheduled.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/schedule')
   async schedulePost(@Param('id') id: string) {
     await this.postsService.schedulePost(id);
@@ -122,6 +125,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Cancel a scheduled post' })
   @ApiResponse({ status: 200, description: 'Post schedule successfully cancelled.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/cancel-schedule')
   async cancelSchedule(@Param('id') id: string) {
     await this.postsService.cancelSchedule(id);
@@ -134,6 +138,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Publish a post immediately' })
   @ApiResponse({ status: 200, description: 'Post successfully queued for immediate publication.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/publish-now')
   async publishNow(@Param('id') id: string) {
     await this.postsService.publishNow(id);
@@ -146,6 +151,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Duplicate a post' })
   @ApiResponse({ status: 201, description: 'Post successfully duplicated.' })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
+  @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR, WorkspaceRole.VIEWER)
   @Post(':id/duplicate')
   async duplicate(@Req() req: Request, @Param('id') id: string) {
     const user: any = req.user;

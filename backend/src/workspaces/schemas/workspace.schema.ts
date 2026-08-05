@@ -20,7 +20,7 @@ export const WorkspaceMemberSchema = SchemaFactory.createForClass(WorkspaceMembe
 
 @Schema({ timestamps: true })
 export class Workspace extends Document {
-  @Prop({ required: true })
+  @Prop({ required: true, unique: true })
   name: string;
 
   @Prop({ type: [WorkspaceMemberSchema], default: [] })

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/stores/auth';
@@ -65,6 +65,37 @@ export default function CalendarPage() {
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [isSidebarDragOver, setIsSidebarDragOver] = useState(false);
   const [showSidebar, setShowSidebar] = useState(true);
+  const queryClient = useQueryClient();
+
+  // Real-time SSE connection for post updates
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const eventSource = new EventSource(`${apiUrl}/posts/events`);
+
+    eventSource.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (['post_updated', 'post_created', 'post_deleted'].includes(payload.event)) {
+          queryClient.invalidateQueries({ queryKey: ['posts', activeWorkspaceId] });
+          if (payload.event === 'post_updated') {
+            toast.info(`A post was updated by another user`);
+          } else if (payload.event === 'post_created') {
+            toast.info(`A new post was created`);
+          } else if (payload.event === 'post_deleted') {
+            toast.info(`A post was deleted`);
+          }
+        }
+      } catch (err) {
+        console.error('Error parsing SSE data', err);
+      }
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [activeWorkspaceId, queryClient]);
 
   const [confirmState, setConfirmState] = useState<{
     isOpen: boolean;

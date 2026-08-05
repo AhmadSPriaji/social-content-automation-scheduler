@@ -34,4 +34,8 @@ export class AuditLogsService {
       .sort({ timestamp: -1 })
       .exec();
   }
+
+  async deleteLogsForWorkspace(workspaceId: string): Promise<void> {
+    await this.auditLogModel.deleteMany({ workspaceId: new Types.ObjectId(workspaceId) }).exec();
+  }
 }
