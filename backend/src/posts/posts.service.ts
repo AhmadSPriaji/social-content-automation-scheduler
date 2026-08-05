@@ -33,6 +33,12 @@ export class PostsService {
     try {
       const saved = await newPost.save();
       await this.auditLogsService.createLog('post_created', `Post created by user ${authorId}`, { postId: saved._id.toString() });
+      
+      this.postUpdates$.next({
+        event: 'post_created',
+        data: saved,
+      });
+
       return saved;
     } catch (error: any) {
       if (error.code === 11000) {
@@ -74,6 +80,11 @@ export class PostsService {
 
       await this.auditLogsService.createLog('post_updated', `Post updated`, { postId: id });
 
+      this.postUpdates$.next({
+        event: 'post_updated',
+        data: updatedPost,
+      });
+
       return updatedPost!;
     } catch (error: any) {
       if (error.code === 11000) {
@@ -90,6 +101,11 @@ export class PostsService {
     }
 
     await this.auditLogsService.createLog('post_deleted', `Post deleted`, { postId: id });
+
+    this.postUpdates$.next({
+      event: 'post_deleted',
+      data: { postId: id },
+    });
   }
 
   async updateStatus(id: string, status: string, errorReason?: string): Promise<void> {
@@ -124,6 +140,8 @@ export class PostsService {
 
     await this.updateStatus(id, 'scheduled');
     await this.auditLogsService.createLog('post_scheduled', `Post scheduled for publication at ${post.scheduledAt.toISOString()}`, { postId: id });
+
+    // updateStatus already emits post_updated. We just need to make sure the queue works.
 
     // Remove any existing job for this post (useful for rescheduling)
     const existingJob = await this.publishQueue.getJob(`post-${id}`);
@@ -229,6 +247,11 @@ export class PostsService {
     const saved = await duplicatedPost.save();
 
     await this.auditLogsService.createLog('post_duplicated', `Post duplicated from ${id}`, { postId: saved._id.toString() });
+
+    this.postUpdates$.next({
+      event: 'post_created',
+      data: saved,
+    });
 
     return saved;
   }

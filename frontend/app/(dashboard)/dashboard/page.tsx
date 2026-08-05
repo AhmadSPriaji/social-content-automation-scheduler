@@ -87,9 +87,15 @@ export default function DashboardPage() {
     eventSource.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (payload.event === 'post_updated') {
+        if (['post_updated', 'post_created', 'post_deleted'].includes(payload.event)) {
           queryClient.invalidateQueries({ queryKey: ['posts', activeWorkspaceId] });
-          toast.info(`A post was updated to ${payload.data.status}`);
+          if (payload.event === 'post_updated') {
+            toast.info(`A post was updated by another user`);
+          } else if (payload.event === 'post_created') {
+            toast.info(`A new post was created`);
+          } else if (payload.event === 'post_deleted') {
+            toast.info(`A post was deleted`);
+          }
         }
       } catch (err) {
         console.error('Error parsing SSE data', err);

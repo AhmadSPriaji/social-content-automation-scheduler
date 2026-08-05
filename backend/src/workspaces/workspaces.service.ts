@@ -2,9 +2,12 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Workspace, WorkspaceRole } from './schemas/workspace.schema';
+import { Post } from '../posts/schemas/post.schema';
 import { UsersService } from '../users/users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ConfigService } from '@nestjs/config';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import Redis from 'ioredis';
 
 @Injectable()
@@ -13,6 +16,8 @@ export class WorkspacesService {
 
   constructor(
     @InjectModel(Workspace.name) private workspaceModel: Model<Workspace>,
+    @InjectModel(Post.name) private postModel: Model<Post>,
+    @InjectQueue('publish-post') private publishQueue: Queue,
     private usersService: UsersService,
     private auditLogsService: AuditLogsService,
     private configService: ConfigService,
@@ -26,7 +31,9 @@ export class WorkspacesService {
 
   async findAllForUser(userId: string): Promise<Workspace[]> {
     // Find workspaces where members array contains an object with this userId
-    return this.workspaceModel.find({ 'members.userId': new Types.ObjectId(userId) }).exec();
+    return this.workspaceModel.find({ 'members.userId': new Types.ObjectId(userId) })
+      .populate('members.userId', 'email name')
+      .exec();
   }
 
   async getAuditLogs(workspaceId: string) {
@@ -38,12 +45,60 @@ export class WorkspacesService {
       name,
       members: [{ userId: new Types.ObjectId(userId), role: WorkspaceRole.OWNER }],
     });
-    const saved = await newWorkspace.save();
+    
+    try {
+      const saved = await newWorkspace.save();
 
-    // Log creation
-    await this.auditLogsService.createLog('workspace_created', `Workspace '${name}' created by user ${userId}`, { workspaceId: saved._id.toString() });
+      // Log creation
+      await this.auditLogsService.createLog('workspace_created', `Workspace '${name}' created by user ${userId}`, { workspaceId: saved._id.toString() });
 
-    return saved;
+      return saved;
+    } catch (error: any) {
+      if (error.code === 11000) {
+        throw new BadRequestException('Workspace name already exists');
+      }
+      throw error;
+    }
+  }
+
+  async updateWorkspaceName(workspaceId: string, name: string): Promise<Workspace> {
+    try {
+      const workspace = await this.workspaceModel.findByIdAndUpdate(workspaceId, { name }, { new: true });
+      if (!workspace) throw new NotFoundException('Workspace not found');
+      
+      await this.auditLogsService.createLog('workspace_updated', `Workspace name changed to '${name}'`, { workspaceId });
+      return workspace;
+    } catch (error: any) {
+      if (error.code === 11000) {
+        throw new BadRequestException('Workspace name already exists');
+      }
+      throw error;
+    }
+  }
+
+  async deleteWorkspace(workspaceId: string): Promise<void> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // 0. Remove scheduled jobs
+    const posts = await this.postModel.find({ workspaceId: new Types.ObjectId(workspaceId) });
+    for (const post of posts) {
+      const job = await this.publishQueue.getJob(`post-${post._id}`);
+      if (job) {
+        await job.remove();
+      }
+    }
+
+    // 1. Delete all posts
+    await this.postModel.deleteMany({ workspaceId: new Types.ObjectId(workspaceId) }).exec();
+
+    // 2. Delete all audit logs
+    await this.auditLogsService.deleteLogsForWorkspace(workspaceId);
+
+    // 3. Delete workspace
+    await this.workspaceModel.findByIdAndDelete(workspaceId).exec();
   }
 
   async addMember(workspaceId: string, email: string, role: WorkspaceRole): Promise<Workspace> {
@@ -71,6 +126,50 @@ export class WorkspacesService {
     // Log member addition
     await this.auditLogsService.createLog('member_added', `User ${email} added as ${role}`, { workspaceId });
 
+    return saved;
+  }
+
+  async removeMember(workspaceId: string, userId: string): Promise<Workspace> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    const memberIndex = workspace.members.findIndex(m => m.userId.toString() === userId);
+    if (memberIndex === -1) {
+      throw new NotFoundException('User is not a member of this workspace');
+    }
+    
+    // Prevent removing the last owner
+    const owners = workspace.members.filter(m => m.role === WorkspaceRole.OWNER);
+    if (owners.length === 1 && workspace.members[memberIndex].role === WorkspaceRole.OWNER) {
+      throw new BadRequestException('Cannot remove the last owner of the workspace');
+    }
+
+    workspace.members.splice(memberIndex, 1);
+    const saved = await workspace.save();
+    
+    await this.auditLogsService.createLog('member_removed', `User ID ${userId} removed`, { workspaceId });
+    return saved;
+  }
+
+  async updateMemberRole(workspaceId: string, userId: string, role: WorkspaceRole): Promise<Workspace> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    const memberIndex = workspace.members.findIndex(m => m.userId.toString() === userId);
+    if (memberIndex === -1) {
+      throw new NotFoundException('User is not a member of this workspace');
+    }
+    
+    // Prevent downgrading the last owner
+    const owners = workspace.members.filter(m => m.role === WorkspaceRole.OWNER);
+    if (owners.length === 1 && workspace.members[memberIndex].role === WorkspaceRole.OWNER && role !== WorkspaceRole.OWNER) {
+      throw new BadRequestException('Cannot downgrade the last owner of the workspace');
+    }
+
+    workspace.members[memberIndex].role = role;
+    const saved = await workspace.save();
+    
+    await this.auditLogsService.createLog('member_role_updated', `User ID ${userId} role changed to ${role}`, { workspaceId });
     return saved;
   }
 

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 export interface WorkspaceMember {
-  userId: string;
+  userId: string | { _id: string; email: string; name?: string };
   role: 'owner' | 'editor' | 'viewer';
 }
 

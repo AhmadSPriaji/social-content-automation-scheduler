@@ -1,7 +1,7 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get, Query, Res } from '@nestjs/common';
+import { Controller, Post, Body, Param, UseGuards, Req, Get, Query, Res, Delete, Patch } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
 import { WorkspacesService } from './workspaces.service';
-import { CreateWorkspaceDto, AddMemberDto } from './dto/workspaces.dto';
+import { CreateWorkspaceDto, AddMemberDto, UpdateMemberRoleDto, UpdateWorkspaceDto } from './dto/workspaces.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspaceRolesGuard } from '../common/guards/workspace-roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -30,6 +30,27 @@ export class WorkspacesController {
     return this.workspacesService.create(body.name, userId);
   }
 
+  @ApiOperation({ summary: 'Delete a workspace' })
+  @ApiResponse({ status: 200, description: 'Workspace deleted successfully.' })
+  @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER)
+  @Delete(':workspaceId')
+  async deleteWorkspace(@Param('workspaceId') workspaceId: string) {
+    await this.workspacesService.deleteWorkspace(workspaceId);
+    return { message: 'Workspace deleted successfully' };
+  }
+
+  @ApiOperation({ summary: 'Update a workspace name' })
+  @ApiResponse({ status: 200, description: 'Workspace renamed successfully.' })
+  @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER)
+  @Patch(':workspaceId')
+  async updateWorkspaceName(@Param('workspaceId') workspaceId: string, @Body() body: UpdateWorkspaceDto) {
+    return this.workspacesService.updateWorkspaceName(workspaceId, body.name);
+  }
+
   @ApiOperation({ summary: 'Add a member to a workspace' })
   @ApiResponse({ status: 201, description: 'Member added successfully.' })
   @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
@@ -42,6 +63,35 @@ export class WorkspacesController {
     @Body() body: AddMemberDto,
   ) {
     return this.workspacesService.addMember(workspaceId, body.email, body.role);
+  }
+
+  @ApiOperation({ summary: 'Remove a member from a workspace' })
+  @ApiResponse({ status: 200, description: 'Member removed successfully.' })
+  @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER)
+  @Delete(':workspaceId/members/:userId')
+  async removeMember(
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') userId: string,
+  ) {
+    await this.workspacesService.removeMember(workspaceId, userId);
+    return { message: 'Member removed successfully' };
+  }
+
+  @ApiOperation({ summary: 'Update a member role in a workspace' })
+  @ApiResponse({ status: 200, description: 'Member role updated successfully.' })
+  @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER)
+  @Patch(':workspaceId/members/:userId')
+  async updateMemberRole(
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') userId: string,
+    @Body() body: UpdateMemberRoleDto,
+  ) {
+    await this.workspacesService.updateMemberRole(workspaceId, userId, body.role);
+    return { message: 'Member role updated successfully' };
   }
 
   @ApiOperation({ summary: 'Get audit logs for a workspace' })
