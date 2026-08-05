@@ -22,13 +22,14 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 
 const editPostSchema = z.object({
+  title: z.string().min(1, 'Judul post wajib diisi').max(100, 'Maksimal 100 karakter'),
   content: z.string().optional(),
 });
 
 type EditPostFormValues = z.infer<typeof editPostSchema>;
 
 interface EditPostModalProps {
-  post: { _id: string; content?: string; mediaUrls: string[] } | null;
+  post: { _id: string; title?: string; content?: string; mediaUrls: string[] } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: () => void;
@@ -43,6 +44,7 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
   const form = useForm<EditPostFormValues>({
     resolver: zodResolver(editPostSchema),
     defaultValues: {
+      title: '',
       content: '',
     },
   });
@@ -50,7 +52,7 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
   // Populate form when modal opens with a valid post
   useEffect(() => {
     if (post && open) {
-      form.reset({ content: post.content || '' });
+      form.reset({ title: post.title || '', content: post.content || '' });
       setUploadedMediaUrls(post.mediaUrls || []);
     }
   }, [post, open, form]);
@@ -102,6 +104,7 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
     setIsLoading(true);
     try {
       await api.put(`/posts/${post._id}`, {
+        title: data.title,
         content: data.content,
         mediaUrls: uploadedMediaUrls,
       });
@@ -128,9 +131,21 @@ export function EditPostModal({ post, open, onOpenChange, onSuccess }: EditPostM
         </DialogHeader>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
           <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
+            <Label htmlFor="edit-title">Title</Label>
+            <Input
+              id="edit-title"
+              placeholder="Post Title"
+              {...form.register('title')}
+            />
+            {form.formState.errors.title && (
+              <p className="text-sm text-destructive">{form.formState.errors.title.message}</p>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-content">Content</Label>
             <Textarea
-              id="content"
+              id="edit-content"
               placeholder="What do you want to share?"
               className="min-h-[120px] resize-none"
               {...form.register('content')}

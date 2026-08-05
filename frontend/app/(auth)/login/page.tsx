@@ -22,6 +22,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 
+import { useWorkspaceStore } from '@/stores/workspace';
+
 const loginSchema = z.object({
   email: z.string().email({ message: 'Invalid email address' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
@@ -32,6 +34,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const setAuth = useAuthStore((state) => state.setAuth);
+  const { setWorkspaces, setActiveWorkspace } = useWorkspaceStore();
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<LoginFormValues>({
@@ -47,9 +50,17 @@ export default function LoginPage() {
     try {
       await api.post('/auth/login', data);
       
-      // Fetch user profile immediately after login to populate store
-      const meRes = await api.get('/auth/me');
-      setAuth(meRes.data);
+      // Fetch user profile
+      const { data: userData } = await api.get('/auth/me');
+      setAuth(userData);
+      
+      // Fetch workspaces
+      const { data: workspacesData } = await api.get('/workspaces');
+      setWorkspaces(workspacesData);
+      
+      if (workspacesData.length > 0) {
+        setActiveWorkspace(workspacesData[0]._id);
+      }
       
       toast.success('Logged in successfully');
       router.push('/dashboard');

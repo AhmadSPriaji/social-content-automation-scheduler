@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsArray, IsEnum, IsDateString, IsMongoId } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsArray, IsEnum, IsDateString, IsMongoId, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreatePostDto {
@@ -6,6 +6,12 @@ export class CreatePostDto {
   @IsMongoId({ message: 'Workspace ID harus berupa valid MongoId' })
   @IsNotEmpty({ message: 'Workspace ID tidak boleh kosong' })
   workspaceId!: string;
+
+  @ApiProperty({ example: 'My First Post', description: 'Title of the post' })
+  @IsString()
+  @IsNotEmpty({ message: 'Judul post tidak boleh kosong' })
+  @MaxLength(100, { message: 'Judul post maksimal 100 karakter' })
+  title!: string;
 
   @ApiProperty({ example: 'Hello World! This is my post', description: 'Post text content' })
   @IsString()
@@ -29,6 +35,12 @@ export class CreatePostDto {
 }
 
 export class UpdatePostDto {
+  @ApiProperty({ example: 'Updated title', description: 'Updated post title', required: false })
+  @IsString()
+  @IsOptional()
+  @MaxLength(100, { message: 'Judul post maksimal 100 karakter' })
+  title?: string;
+
   @ApiProperty({ example: 'Updated post content', description: 'Updated post text content', required: false })
   @IsString()
   @IsOptional()

@@ -27,61 +27,41 @@ export class PostProcessor extends WorkerHost {
       const post = await this.postsService.findById(postId);
       if (!post) throw new Error('Post not found');
 
-      const workspace = await this.workspacesService.findById(post.workspaceId.toString());
-      if (!workspace) throw new Error('Workspace not found');
+      // DUMMY LOGIC: Randomly succeed or fail
+      // Simulate processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const redditAccount = workspace.connectedAccounts.find(acc => acc.provider === 'reddit');
-      if (!redditAccount) {
-        throw new Error('Reddit account not connected to this workspace');
-      }
+      const isSuccess = Math.random() > 0.5;
 
-      const accessToken = redditAccount.accessToken;
-      // We stored the username in the refresh token field as "username::token"
-      const username = redditAccount.refreshToken ? redditAccount.refreshToken.split('::')[0] : '';
-      
-      if (!username) {
-        throw new Error('Could not find Reddit username for this workspace');
-      }
 
-      // Use the first 50 characters (or first line) as the title
-      const title = post.content.split('\n')[0].substring(0, 50);
-
-      const response = await fetch('https://oauth.reddit.com/api/submit', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'User-Agent': 'SocialContentScheduler/1.0.0',
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          sr: `u_${username}`,
-          kind: 'self',
-          title: title,
-          text: post.content,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Reddit API Error: ${response.status} - ${errorText}`);
+      if (!isSuccess) {
+        const errorReasons = [
+          'Platform rate limit exceeded',
+          'Account disconnected',
+          'Media format not supported by platform',
+          'Post content violates community guidelines',
+          'Network timeout during upload'
+        ];
+        const randomError = errorReasons[Math.floor(Math.random() * errorReasons.length)];
+        throw new Error(randomError);
       }
 
       // 3. Success: Update status to published
       await this.postsService.updateStatus(postId, 'published');
       this.logger.log(`Post ${postId} successfully published.`);
       await this.auditLogsService.createLog('publish_success', `Post published successfully on attempt ${attempt}`, { postId });
-      
+
       return { status: 'published' };
     } catch (error: any) {
       this.logger.error(`Failed to publish post ${postId}: ${error.message}`);
-      
+
       // Increment retry count in DB
       await this.postsService.incrementRetryCount(postId);
 
       // If this is the last attempt (job.attemptsMade is 0-indexed, opts.attempts is total)
       if (job.attemptsMade >= (job.opts.attempts || 1) - 1) {
         this.logger.warn(`Max retries reached for post ${postId}. Marking as failed.`);
-        await this.postsService.updateStatus(postId, 'failed');
+        await this.postsService.updateStatus(postId, 'failed', error.message);
         await this.auditLogsService.createLog('publish_failed', `Permanent failure after ${attempt} attempts: ${error.message}`, { postId });
       } else {
         await this.auditLogsService.createLog('publish_failed', `Attempt ${attempt} failed: ${error.message}. Retrying...`, { postId });
