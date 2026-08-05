@@ -56,15 +56,15 @@ export function Topbar() {
           </SheetContent>
         </Sheet>
         
-        <div className="hidden md:flex font-bold text-lg tracking-tight">Social Scheduler</div>
+        <div className="hidden md:flex font-bold text-lg tracking-tight">AutoSocial</div>
       </div>
 
       <div className="flex items-center gap-4">
         {/* Workspace Selector */}
         {workspaces.length > 0 ? (
           <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2">
-                {activeWorkspace?.name || 'Select Workspace'}
+            <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 px-4 py-2 max-w-[150px] sm:max-w-[200px]">
+                <span className="truncate">{activeWorkspace?.name || 'Select Workspace'}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuGroup>

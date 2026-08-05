@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -103,8 +104,8 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 w-full max-w-full overflow-hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Posts</h1>
           <p className="text-muted-foreground">
@@ -116,9 +117,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="all">All Posts</TabsTrigger>
+      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="w-full overflow-hidden">
+        <TabsList className="w-full justify-start overflow-x-auto flex-nowrap h-auto py-2 px-1">
+          <TabsTrigger value="all" className="whitespace-nowrap">All Posts</TabsTrigger>
           <TabsTrigger value="draft">Drafts</TabsTrigger>
           <TabsTrigger value="scheduled">Scheduled</TabsTrigger>
           <TabsTrigger value="published">Published</TabsTrigger>
@@ -138,11 +139,15 @@ export default function DashboardPage() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                    Loading posts...
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-full max-w-[250px]" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-[80px] rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
+                  </TableRow>
+                ))
               ) : isError ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-10 text-destructive">
@@ -151,8 +156,10 @@ export default function DashboardPage() {
                 </TableRow>
               ) : filteredPosts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
-                    No posts found.
+                  <TableCell colSpan={5} className="h-32 text-center">
+                    <div className="flex flex-col items-center justify-center text-muted-foreground space-y-2">
+                      <span className="text-sm">No posts found for this status.</span>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (

@@ -17,9 +17,11 @@ api.interceptors.response.use(
         await api.post('/auth/refresh');
         return api(originalRequest);
       } catch (e) {
-        // Refresh failed, maybe redirect to login
         if (typeof window !== 'undefined') {
-          window.location.href = '/login';
+          const publicRoutes = ['/', '/login', '/register'];
+          if (!publicRoutes.includes(window.location.pathname)) {
+            window.location.href = '/login?clear=true';
+          }
         }
         return Promise.reject(e);
       }
