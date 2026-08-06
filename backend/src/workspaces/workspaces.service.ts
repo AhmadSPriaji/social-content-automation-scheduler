@@ -10,6 +10,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
+import { EncryptionService } from '../common/services/encryption.service';
 
 @Injectable()
 export class WorkspacesService {
@@ -23,6 +24,7 @@ export class WorkspacesService {
     private auditLogsService: AuditLogsService,
     private configService: ConfigService,
     private mailerService: MailerService,
+    private encryptionService: EncryptionService,
   ) {
     this.redisClient = new Redis(this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379');
   }
@@ -305,6 +307,13 @@ export class WorkspacesService {
 
     // Simulate connecting to a provider
     const mockToken = `mock_oauth_token_${Math.random().toString(36).substring(7)}`;
+    const encryptedToken = this.encryptionService.encrypt(mockToken);
+    
+    workspace.connectedAccounts.push({
+      provider: 'MockSocial',
+      accessToken: encryptedToken,
+    });
+    await workspace.save();
     
     // Log OAuth connection
     await this.auditLogsService.createLog('oauth_connected', `Workspace connected to Mock Social Provider`, { workspaceId });
@@ -403,10 +412,14 @@ export class WorkspacesService {
       // Add new reddit account. We store username in the token field for simplicity, or we could add a new schema field.
       // We will just store it in the refreshToken or alongside it if we had a field. Since our schema is simple,
       // let's put the username as a prefix or we'll just fetch it on the fly. Actually, let's store username inside refreshToken like `username::real_refresh_token` for simplicity without schema changes.
+      
+      const encryptedAccessToken = this.encryptionService.encrypt(accessToken);
+      const encryptedRefreshToken = this.encryptionService.encrypt(`${username}::${refreshToken}`);
+      
       workspace.connectedAccounts.push({
         provider: 'reddit',
-        accessToken,
-        refreshToken: `${username}::${refreshToken}`, // Hack to store username without changing schema
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
       });
 
       await workspace.save();

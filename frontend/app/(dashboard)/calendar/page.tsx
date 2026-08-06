@@ -114,7 +114,7 @@ export default function CalendarPage() {
   });
 
   const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
-  const userRole = activeWorkspace?.members.find((m) => m.userId === user?._id)?.role;
+  const userRole = activeWorkspace?.members.find((m) => m.userId === user?.id)?.role;
   const isViewer = userRole === 'viewer';
 
   const { data: posts = [], isLoading, refetch } = useQuery<Post[]>({

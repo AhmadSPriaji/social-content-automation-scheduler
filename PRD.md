@@ -15,7 +15,8 @@ This is not a simple CRUD app. It is an Identity and Access Management (IAM) sec
 
 ### Infrastructure & Monorepo Setup:
 * **Monorepo:** Both frontend and backend must reside in a single repository.
-* **Docker:** `docker-compose.yml` required at the root for local database and cache provisioning.
+* **Docker:** `docker-compose.yml` required at the root for provisioning all services (Next.js, NestJS, MongoDB, and Redis) simultaneously.
+* **CI/CD:** GitHub Actions configured for automated linting and build validation on push/PR.
 
 ### Backend (`/backend`):
 * **Framework:** NestJS (Strict TypeScript).
@@ -38,6 +39,7 @@ This is not a simple CRUD app. It is an Identity and Access Management (IAM) sec
 * **User Management:** Email/password registration and login. Passwords must be hashed using bcrypt or argon2.
 * **Session Management:** Implement a `/refresh` endpoint. Store only the hash of the refresh token in a `Sessions` MongoDB collection.
 * **Workspaces & Invitations:** Users must be able to create a Workspace. The creator becomes the 'owner'. Include an invitation flow to add other users to the workspace.
+* **Data Security (Encryption at Rest):** OAuth tokens (even mock ones) and sensitive connected account secrets must be encrypted at rest in MongoDB using AES-256-CBC to demonstrate enterprise security mindset.
 
 ### 3.2. Authorization (RBAC & ABAC)
 * **Workspace Roles (RBAC):** Users belong to workspaces with roles: `owner`, `editor`, or `viewer`.
@@ -69,6 +71,8 @@ This is not a simple CRUD app. It is an Identity and Access Management (IAM) sec
 * **Multi-image Carousels:** Support for scheduling multi-image carousel posts.
 * **Analytics Charts:** Mock analytics charts for each post.
 * **AI Captions (Optional):** AI-assisted caption generation.
+* **Rich Audit Trails:** Context-aware activity logs (e.g., "User A scheduled this post for tomorrow").
+* **DevOps Ready:** `docker-compose up` runs the entire stack, accompanied by a CI pipeline.
 
 ## 4. Data Modeling (MongoDB Schemas)
 

@@ -8,6 +8,7 @@ import { WorkspacesController } from './workspaces.controller';
 import { UsersModule } from '../users/users.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { BullModule } from '@nestjs/bullmq';
+import { EncryptionService } from '../common/services/encryption.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { BullModule } from '@nestjs/bullmq';
     AuditLogsModule,
   ],
   controllers: [WorkspacesController],
-  providers: [WorkspacesService],
+  providers: [WorkspacesService, EncryptionService],
   exports: [WorkspacesService],
 })
 export class WorkspacesModule {}

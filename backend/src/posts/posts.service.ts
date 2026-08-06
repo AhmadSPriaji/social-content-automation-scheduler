@@ -23,16 +23,16 @@ export class PostsService {
     return this.auditLogsService.getLogsForPost(postId);
   }
 
-  async create(authorId: string, createPostDto: CreatePostDto): Promise<Post> {
+  async create(user: any, createPostDto: CreatePostDto): Promise<Post> {
     const newPost = new this.postModel({
       ...createPostDto,
-      authorId: new Types.ObjectId(authorId),
+      authorId: new Types.ObjectId(user.id),
       workspaceId: new Types.ObjectId(createPostDto.workspaceId),
     });
     
     try {
       const saved = await newPost.save();
-      await this.auditLogsService.createLog('post_created', `Post created by user ${authorId}`, { postId: saved._id.toString() });
+      await this.auditLogsService.createLog('post_created', `Post "${saved.title}" created by ${user.email}`, { postId: saved._id.toString(), workspaceId: createPostDto.workspaceId });
       
       this.postUpdates$.next({
         event: 'post_created',
@@ -56,7 +56,7 @@ export class PostsService {
     return this.postModel.findById(id).exec();
   }
 
-  async update(id: string, updatePostDto: UpdatePostDto): Promise<Post> {
+  async update(id: string, updatePostDto: UpdatePostDto, user?: any): Promise<Post> {
     const post = await this.findById(id);
     if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
@@ -78,7 +78,8 @@ export class PostsService {
         .findByIdAndUpdate(id, { ...updatePostDto, ...additionalUpdates }, { new: true })
         .exec();
 
-      await this.auditLogsService.createLog('post_updated', `Post updated`, { postId: id });
+      const userText = user ? ` by ${user.email}` : '';
+      await this.auditLogsService.createLog('post_updated', `Post "${updatedPost?.title}" updated${userText}`, { postId: id, workspaceId: updatedPost?.workspaceId.toString() });
 
       this.postUpdates$.next({
         event: 'post_updated',
@@ -94,13 +95,15 @@ export class PostsService {
     }
   }
 
-  async delete(id: string): Promise<void> {
-    const result = await this.postModel.findByIdAndDelete(id).exec();
-    if (!result) {
+  async delete(id: string, user?: any): Promise<void> {
+    const post = await this.findById(id);
+    if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
     }
+    await this.postModel.findByIdAndDelete(id).exec();
 
-    await this.auditLogsService.createLog('post_deleted', `Post deleted`, { postId: id });
+    const userText = user ? ` by ${user.email}` : '';
+    await this.auditLogsService.createLog('post_deleted', `Post "${post.title}" deleted${userText}`, { postId: id, workspaceId: post.workspaceId.toString() });
 
     this.postUpdates$.next({
       event: 'post_deleted',
@@ -126,7 +129,7 @@ export class PostsService {
     await this.postModel.findByIdAndUpdate(id, { $inc: { retryCount: 1 } }).exec();
   }
 
-  async schedulePost(id: string): Promise<void> {
+  async schedulePost(id: string, user?: any): Promise<void> {
     const post = await this.findById(id);
     if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
@@ -139,7 +142,8 @@ export class PostsService {
     const delay = Math.max(0, post.scheduledAt.getTime() - Date.now());
 
     await this.updateStatus(id, 'scheduled');
-    await this.auditLogsService.createLog('post_scheduled', `Post scheduled for publication at ${post.scheduledAt.toISOString()}`, { postId: id });
+    const userText = user ? ` by ${user.email}` : '';
+    await this.auditLogsService.createLog('post_scheduled', `Post "${post.title}" scheduled for publication at ${post.scheduledAt.toISOString()}${userText}`, { postId: id, workspaceId: post.workspaceId.toString() });
 
     // updateStatus already emits post_updated. We just need to make sure the queue works.
 
@@ -164,7 +168,7 @@ export class PostsService {
     );
   }
 
-  async cancelSchedule(id: string): Promise<void> {
+  async cancelSchedule(id: string, user?: any): Promise<void> {
     const post = await this.findById(id);
     if (!post) {
       throw new NotFoundException(`Post with ID ${id} not found`);
@@ -186,7 +190,8 @@ export class PostsService {
       $set: { status: 'draft' }
     }).exec();
 
-    await this.auditLogsService.createLog('post_schedule_cancelled', `Post schedule cancelled`, { postId: id });
+    const userText = user ? ` by ${user.email}` : '';
+    await this.auditLogsService.createLog('post_schedule_cancelled', `Schedule for post "${post.title}" cancelled${userText}`, { postId: id, workspaceId: post.workspaceId.toString() });
 
     // Emit real-time event
     this.postUpdates$.next({
@@ -195,7 +200,7 @@ export class PostsService {
     });
   }
 
-  async publishNow(id: string): Promise<void> {
+  async publishNow(id: string, user?: any): Promise<void> {
     const post = await this.findById(id);
     if (!post) throw new NotFoundException(`Post with ID ${id} not found`);
     
@@ -228,7 +233,8 @@ export class PostsService {
       },
     );
 
-    await this.auditLogsService.createLog('post_publish_now', `Post submitted for immediate publication`, { postId: id });
+    const userText = user ? ` by ${user.email}` : '';
+    await this.auditLogsService.createLog('post_publish_now', `Post "${post.title}" submitted for immediate publication${userText}`, { postId: id, workspaceId: post.workspaceId.toString() });
   }
 
   async duplicate(id: string, userId: string): Promise<Post> {
