@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Workspace, WorkspaceRole } from './schemas/workspace.schema';
@@ -10,6 +15,7 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
+import { EncryptionService } from '../common/services/encryption.service';
 
 @Injectable()
 export class WorkspacesService {
@@ -23,8 +29,11 @@ export class WorkspacesService {
     private auditLogsService: AuditLogsService,
     private configService: ConfigService,
     private mailerService: MailerService,
+    private encryptionService: EncryptionService,
   ) {
-    this.redisClient = new Redis(this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379');
+    this.redisClient = new Redis(
+      this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379',
+    );
   }
 
   async findById(id: string): Promise<Workspace | null> {
@@ -33,13 +42,15 @@ export class WorkspacesService {
 
   async findAllForUser(userId: string): Promise<Workspace[]> {
     // Find workspaces where members array contains an object with this userId
-    return this.workspaceModel.find({ 'members.userId': new Types.ObjectId(userId) })
+    return this.workspaceModel
+      .find({ 'members.userId': new Types.ObjectId(userId) })
       .populate('members.userId', 'email name')
       .exec();
   }
 
   async getPendingInvitations(email: string): Promise<Workspace[]> {
-    return this.workspaceModel.find({ 'pendingInvitations.email': email })
+    return this.workspaceModel
+      .find({ 'pendingInvitations.email': email })
       .select('name pendingInvitations') // Only return necessary fields
       .exec();
   }
@@ -48,7 +59,9 @@ export class WorkspacesService {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const invite = workspace.pendingInvitations.find(inv => inv.email === email);
+    const invite = workspace.pendingInvitations.find(
+      (inv) => inv.email === email,
+    );
     if (!invite) throw new NotFoundException('Invitation not found');
 
     return {
@@ -66,14 +79,20 @@ export class WorkspacesService {
   async create(name: string, userId: string): Promise<Workspace> {
     const newWorkspace = new this.workspaceModel({
       name,
-      members: [{ userId: new Types.ObjectId(userId), role: WorkspaceRole.OWNER }],
+      members: [
+        { userId: new Types.ObjectId(userId), role: WorkspaceRole.OWNER },
+      ],
     });
-    
+
     try {
       const saved = await newWorkspace.save();
 
       // Log creation
-      await this.auditLogsService.createLog('workspace_created', `Workspace '${name}' created by user ${userId}`, { workspaceId: saved._id.toString() });
+      await this.auditLogsService.createLog(
+        'workspace_created',
+        `Workspace '${name}' created by user ${userId}`,
+        { workspaceId: saved._id.toString() },
+      );
 
       return saved;
     } catch (error: any) {
@@ -84,12 +103,23 @@ export class WorkspacesService {
     }
   }
 
-  async updateWorkspaceName(workspaceId: string, name: string): Promise<Workspace> {
+  async updateWorkspaceName(
+    workspaceId: string,
+    name: string,
+  ): Promise<Workspace> {
     try {
-      const workspace = await this.workspaceModel.findByIdAndUpdate(workspaceId, { name }, { new: true });
+      const workspace = await this.workspaceModel.findByIdAndUpdate(
+        workspaceId,
+        { name },
+        { new: true },
+      );
       if (!workspace) throw new NotFoundException('Workspace not found');
-      
-      await this.auditLogsService.createLog('workspace_updated', `Workspace name changed to '${name}'`, { workspaceId });
+
+      await this.auditLogsService.createLog(
+        'workspace_updated',
+        `Workspace name changed to '${name}'`,
+        { workspaceId },
+      );
       return workspace;
     } catch (error: any) {
       if (error.code === 11000) {
@@ -106,7 +136,9 @@ export class WorkspacesService {
     }
 
     // 0. Remove scheduled jobs
-    const posts = await this.postModel.find({ workspaceId: new Types.ObjectId(workspaceId) });
+    const posts = await this.postModel.find({
+      workspaceId: new Types.ObjectId(workspaceId),
+    });
     for (const post of posts) {
       const job = await this.publishQueue.getJob(`post-${post._id}`);
       if (job) {
@@ -115,7 +147,9 @@ export class WorkspacesService {
     }
 
     // 1. Delete all posts
-    await this.postModel.deleteMany({ workspaceId: new Types.ObjectId(workspaceId) }).exec();
+    await this.postModel
+      .deleteMany({ workspaceId: new Types.ObjectId(workspaceId) })
+      .exec();
 
     // 2. Delete all audit logs
     await this.auditLogsService.deleteLogsForWorkspace(workspaceId);
@@ -124,7 +158,11 @@ export class WorkspacesService {
     await this.workspaceModel.findByIdAndDelete(workspaceId).exec();
   }
 
-  async addMember(workspaceId: string, email: string, role: WorkspaceRole): Promise<Workspace> {
+  async addMember(
+    workspaceId: string,
+    email: string,
+    role: WorkspaceRole,
+  ): Promise<Workspace> {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) {
       throw new NotFoundException('Workspace not found');
@@ -133,14 +171,20 @@ export class WorkspacesService {
     // Check if user is already a member
     const existingUser = await this.usersService.findByEmail(email);
     if (existingUser) {
-      const existingMember = workspace.members.find((m) => m.userId.toString() === existingUser._id.toString());
+      const existingMember = workspace.members.find(
+        (m) => m.userId.toString() === existingUser._id.toString(),
+      );
       if (existingMember) {
-        throw new ForbiddenException('User is already a member of this workspace');
+        throw new ForbiddenException(
+          'User is already a member of this workspace',
+        );
       }
     }
 
     // Check if already invited
-    const existingInvite = workspace.pendingInvitations.find(inv => inv.email === email);
+    const existingInvite = workspace.pendingInvitations.find(
+      (inv) => inv.email === email,
+    );
     if (existingInvite) {
       throw new BadRequestException('User has already been invited');
     }
@@ -148,11 +192,16 @@ export class WorkspacesService {
     workspace.pendingInvitations.push({ email, role, invitedAt: new Date() });
     const saved = await workspace.save();
 
-    await this.auditLogsService.createLog('member_invited', `User ${email} invited as ${role}`, { workspaceId });
+    await this.auditLogsService.createLog(
+      'member_invited',
+      `User ${email} invited as ${role}`,
+      { workspaceId },
+    );
 
     // Send email
     try {
-      const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
+      const appUrl =
+        this.configService.get<string>('APP_URL') || 'http://localhost:3000';
       const inviteUrl = `${appUrl}/invitations/${workspace._id.toString()}`;
       await this.mailerService.sendMail({
         to: email,
@@ -188,11 +237,16 @@ export class WorkspacesService {
     return saved;
   }
 
-  async revokeInvitation(workspaceId: string, email: string): Promise<Workspace> {
+  async revokeInvitation(
+    workspaceId: string,
+    email: string,
+  ): Promise<Workspace> {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const inviteIndex = workspace.pendingInvitations.findIndex(inv => inv.email === email);
+    const inviteIndex = workspace.pendingInvitations.findIndex(
+      (inv) => inv.email === email,
+    );
     if (inviteIndex === -1) {
       throw new NotFoundException('Invitation not found');
     }
@@ -200,15 +254,25 @@ export class WorkspacesService {
     workspace.pendingInvitations.splice(inviteIndex, 1);
     const saved = await workspace.save();
 
-    await this.auditLogsService.createLog('invitation_revoked', `Invitation for ${email} revoked`, { workspaceId });
+    await this.auditLogsService.createLog(
+      'invitation_revoked',
+      `Invitation for ${email} revoked`,
+      { workspaceId },
+    );
     return saved;
   }
 
-  async acceptInvitation(workspaceId: string, userId: string, email: string): Promise<Workspace> {
+  async acceptInvitation(
+    workspaceId: string,
+    userId: string,
+    email: string,
+  ): Promise<Workspace> {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const inviteIndex = workspace.pendingInvitations.findIndex(inv => inv.email === email);
+    const inviteIndex = workspace.pendingInvitations.findIndex(
+      (inv) => inv.email === email,
+    );
     if (inviteIndex === -1) {
       throw new NotFoundException('Invitation not found or already processed');
     }
@@ -217,16 +281,23 @@ export class WorkspacesService {
     workspace.pendingInvitations.splice(inviteIndex, 1);
 
     // Check if already member
-    if (!workspace.members.some(m => m.userId.toString() === userId)) {
+    if (!workspace.members.some((m) => m.userId.toString() === userId)) {
       workspace.members.push({ userId: new Types.ObjectId(userId), role });
     }
 
     const saved = await workspace.save();
-    await this.auditLogsService.createLog('member_joined', `User ${email} accepted invitation and joined as ${role}`, { workspaceId });
+    await this.auditLogsService.createLog(
+      'member_joined',
+      `User ${email} accepted invitation and joined as ${role}`,
+      { workspaceId },
+    );
     return saved;
   }
 
-  async rejectInvitation(workspaceId: string, email: string): Promise<Workspace> {
+  async rejectInvitation(
+    workspaceId: string,
+    email: string,
+  ): Promise<Workspace> {
     return this.revokeInvitation(workspaceId, email); // Logic is the same, just remove from pending array
   }
 
@@ -234,14 +305,18 @@ export class WorkspacesService {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const memberIndex = workspace.members.findIndex(m => m.userId.toString() === userId);
+    const memberIndex = workspace.members.findIndex(
+      (m) => m.userId.toString() === userId,
+    );
     if (memberIndex === -1) {
       throw new NotFoundException('User is not a member of this workspace');
     }
 
     const member = workspace.members[memberIndex];
     if (member.role === WorkspaceRole.OWNER) {
-      throw new BadRequestException('Owners cannot leave the workspace. You must transfer ownership first or delete the workspace.');
+      throw new BadRequestException(
+        'Owners cannot leave the workspace. You must transfer ownership first or delete the workspace.',
+      );
     }
 
     workspace.members.splice(memberIndex, 1);
@@ -249,51 +324,86 @@ export class WorkspacesService {
 
     const user = await this.usersService.findById(userId);
     const email = user ? user.email : userId;
-    
-    await this.auditLogsService.createLog('member_left', `User ${email} left the workspace`, { workspaceId });
+
+    await this.auditLogsService.createLog(
+      'member_left',
+      `User ${email} left the workspace`,
+      { workspaceId },
+    );
   }
 
   async removeMember(workspaceId: string, userId: string): Promise<Workspace> {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const memberIndex = workspace.members.findIndex(m => m.userId.toString() === userId);
+    const memberIndex = workspace.members.findIndex(
+      (m) => m.userId.toString() === userId,
+    );
     if (memberIndex === -1) {
       throw new NotFoundException('User is not a member of this workspace');
     }
-    
+
     // Prevent removing the last owner
-    const owners = workspace.members.filter(m => m.role === WorkspaceRole.OWNER);
-    if (owners.length === 1 && workspace.members[memberIndex].role === WorkspaceRole.OWNER) {
-      throw new BadRequestException('Cannot remove the last owner of the workspace');
+    const owners = workspace.members.filter(
+      (m) => m.role === WorkspaceRole.OWNER,
+    );
+    if (
+      owners.length === 1 &&
+      workspace.members[memberIndex].role === WorkspaceRole.OWNER
+    ) {
+      throw new BadRequestException(
+        'Cannot remove the last owner of the workspace',
+      );
     }
 
     workspace.members.splice(memberIndex, 1);
     const saved = await workspace.save();
-    
-    await this.auditLogsService.createLog('member_removed', `User ID ${userId} removed`, { workspaceId });
+
+    await this.auditLogsService.createLog(
+      'member_removed',
+      `User ID ${userId} removed`,
+      { workspaceId },
+    );
     return saved;
   }
 
-  async updateMemberRole(workspaceId: string, userId: string, role: WorkspaceRole): Promise<Workspace> {
+  async updateMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: WorkspaceRole,
+  ): Promise<Workspace> {
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) throw new NotFoundException('Workspace not found');
 
-    const memberIndex = workspace.members.findIndex(m => m.userId.toString() === userId);
+    const memberIndex = workspace.members.findIndex(
+      (m) => m.userId.toString() === userId,
+    );
     if (memberIndex === -1) {
       throw new NotFoundException('User is not a member of this workspace');
     }
-    
+
     // Prevent downgrading the last owner
-    const owners = workspace.members.filter(m => m.role === WorkspaceRole.OWNER);
-    if (owners.length === 1 && workspace.members[memberIndex].role === WorkspaceRole.OWNER && role !== WorkspaceRole.OWNER) {
-      throw new BadRequestException('Cannot downgrade the last owner of the workspace');
+    const owners = workspace.members.filter(
+      (m) => m.role === WorkspaceRole.OWNER,
+    );
+    if (
+      owners.length === 1 &&
+      workspace.members[memberIndex].role === WorkspaceRole.OWNER &&
+      role !== WorkspaceRole.OWNER
+    ) {
+      throw new BadRequestException(
+        'Cannot downgrade the last owner of the workspace',
+      );
     }
 
     workspace.members[memberIndex].role = role;
     const saved = await workspace.save();
-    
-    await this.auditLogsService.createLog('member_role_updated', `User ID ${userId} role changed to ${role}`, { workspaceId });
+
+    await this.auditLogsService.createLog(
+      'member_role_updated',
+      `User ID ${userId} role changed to ${role}`,
+      { workspaceId },
+    );
     return saved;
   }
 
@@ -305,9 +415,20 @@ export class WorkspacesService {
 
     // Simulate connecting to a provider
     const mockToken = `mock_oauth_token_${Math.random().toString(36).substring(7)}`;
-    
+    const encryptedToken = this.encryptionService.encrypt(mockToken);
+
+    workspace.connectedAccounts.push({
+      provider: 'MockSocial',
+      accessToken: encryptedToken,
+    });
+    await workspace.save();
+
     // Log OAuth connection
-    await this.auditLogsService.createLog('oauth_connected', `Workspace connected to Mock Social Provider`, { workspaceId });
+    await this.auditLogsService.createLog(
+      'oauth_connected',
+      `Workspace connected to Mock Social Provider`,
+      { workspaceId },
+    );
 
     return {
       message: 'Successfully connected to Mock Social Provider',
@@ -323,17 +444,25 @@ export class WorkspacesService {
     }
 
     const clientId = this.configService.get<string>('REDDIT_CLIENT_ID');
-    const callbackUrl = this.configService.get<string>('REDDIT_CALLBACK_URL') || 'http://localhost:5000/workspaces/reddit/callback';
+    const callbackUrl =
+      this.configService.get<string>('REDDIT_CALLBACK_URL') ||
+      'http://localhost:5000/workspaces/reddit/callback';
 
     if (!clientId) {
-      throw new BadRequestException('Reddit OAuth credentials are not configured in the environment.');
+      throw new BadRequestException(
+        'Reddit OAuth credentials are not configured in the environment.',
+      );
     }
 
     // Generate a random state
     const state = Math.random().toString(36).substring(2, 15);
-    
+
     // Store the workspaceId against the state in Redis for 10 minutes
-    await this.redisClient.setex(`reddit_oauth_state:${state}`, 600, JSON.stringify({ workspaceId }));
+    await this.redisClient.setex(
+      `reddit_oauth_state:${state}`,
+      600,
+      JSON.stringify({ workspaceId }),
+    );
 
     const scopes = 'submit identity';
     const url = `https://www.reddit.com/api/v1/authorize?client_id=${clientId}&response_type=code&state=${state}&redirect_uri=${encodeURIComponent(callbackUrl)}&duration=permanent&scope=${encodeURIComponent(scopes)}`;
@@ -342,7 +471,9 @@ export class WorkspacesService {
   }
 
   async handleRedditCallback(state: string, code: string) {
-    const sessionDataStr = await this.redisClient.get(`reddit_oauth_state:${state}`);
+    const sessionDataStr = await this.redisClient.get(
+      `reddit_oauth_state:${state}`,
+    );
     if (!sessionDataStr) {
       throw new BadRequestException('Invalid or expired OAuth state.');
     }
@@ -352,7 +483,9 @@ export class WorkspacesService {
 
     const clientId = this.configService.get<string>('REDDIT_CLIENT_ID');
     const clientSecret = this.configService.get<string>('REDDIT_CLIENT_SECRET');
-    const callbackUrl = this.configService.get<string>('REDDIT_CALLBACK_URL') || 'http://localhost:5000/workspaces/reddit/callback';
+    const callbackUrl =
+      this.configService.get<string>('REDDIT_CALLBACK_URL') ||
+      'http://localhost:5000/workspaces/reddit/callback';
 
     if (!clientId || !clientSecret) {
       throw new BadRequestException('Reddit credentials missing');
@@ -360,20 +493,25 @@ export class WorkspacesService {
 
     try {
       // Exchange code for token
-      const authHeader = 'Basic ' + Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-      const tokenResponse = await fetch('https://www.reddit.com/api/v1/access_token', {
-        method: 'POST',
-        headers: {
-          'Authorization': authHeader,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'SocialContentScheduler/1.0.0',
+      const authHeader =
+        'Basic ' +
+        Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+      const tokenResponse = await fetch(
+        'https://www.reddit.com/api/v1/access_token',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: authHeader,
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'SocialContentScheduler/1.0.0',
+          },
+          body: new URLSearchParams({
+            grant_type: 'authorization_code',
+            code,
+            redirect_uri: callbackUrl,
+          }),
         },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          code,
-          redirect_uri: callbackUrl,
-        }),
-      });
+      );
 
       if (!tokenResponse.ok) {
         const errorText = await tokenResponse.text();
@@ -387,9 +525,9 @@ export class WorkspacesService {
       // Get user identity to find the username
       const meResponse = await fetch('https://oauth.reddit.com/api/v1/me', {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          Authorization: `Bearer ${accessToken}`,
           'User-Agent': 'SocialContentScheduler/1.0.0',
-        }
+        },
       });
       const meData = await meResponse.json();
       const username = meData.name;
@@ -398,24 +536,40 @@ export class WorkspacesService {
       if (!workspace) throw new NotFoundException('Workspace not found');
 
       // Remove existing reddit account if any
-      workspace.connectedAccounts = workspace.connectedAccounts.filter(acc => acc.provider !== 'reddit');
-      
+      workspace.connectedAccounts = workspace.connectedAccounts.filter(
+        (acc) => acc.provider !== 'reddit',
+      );
+
       // Add new reddit account. We store username in the token field for simplicity, or we could add a new schema field.
       // We will just store it in the refreshToken or alongside it if we had a field. Since our schema is simple,
       // let's put the username as a prefix or we'll just fetch it on the fly. Actually, let's store username inside refreshToken like `username::real_refresh_token` for simplicity without schema changes.
+
+      const encryptedAccessToken = this.encryptionService.encrypt(accessToken);
+      const encryptedRefreshToken = this.encryptionService.encrypt(
+        `${username}::${refreshToken}`,
+      );
+
       workspace.connectedAccounts.push({
         provider: 'reddit',
-        accessToken,
-        refreshToken: `${username}::${refreshToken}`, // Hack to store username without changing schema
+        accessToken: encryptedAccessToken,
+        refreshToken: encryptedRefreshToken,
       });
 
       await workspace.save();
 
-      await this.auditLogsService.createLog('oauth_connected', `Workspace connected to Reddit (u/${username})`, { workspaceId });
+      await this.auditLogsService.createLog(
+        'oauth_connected',
+        `Workspace connected to Reddit (u/${username})`,
+        { workspaceId },
+      );
 
-      return { message: `Reddit account (u/${username}) successfully connected!` };
+      return {
+        message: `Reddit account (u/${username}) successfully connected!`,
+      };
     } catch (error: any) {
-      throw new BadRequestException(`Failed to authenticate with Reddit: ${error.message}`);
+      throw new BadRequestException(
+        `Failed to authenticate with Reddit: ${error.message}`,
+      );
     }
   }
 }

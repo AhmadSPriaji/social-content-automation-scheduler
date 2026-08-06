@@ -12,7 +12,7 @@ export default function NotFound() {
         404 - Page Not Found
       </h1>
       <p className="mt-4 text-muted-foreground max-w-[500px]">
-        Oops! The page you are looking for doesn't exist. It might have been moved or deleted.
+        Oops! The page you are looking for doesn&apos;t exist. It might have been moved or deleted.
       </p>
       <div className="mt-8 flex gap-4">
         <Link href="/dashboard" className={buttonVariants()}>Return to Dashboard</Link>

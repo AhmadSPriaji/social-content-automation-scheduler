@@ -35,7 +35,7 @@ export class AuthService {
 
     const payload = { email: user.email, sub: user._id };
     const accessToken = this.jwtService.sign(payload);
-    
+
     // Generate refresh token (7 days)
     const refreshToken = this.jwtService.sign(payload, { expiresIn: '7d' });
     const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
@@ -58,16 +58,23 @@ export class AuthService {
 
   async refresh(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken, { ignoreExpiration: false });
-      
+      const payload = this.jwtService.verify(refreshToken, {
+        ignoreExpiration: false,
+      });
+
       // We should ideally check the session from the DB and compare hashes
       // For simplicity and standard approach, we find if any session matches the user and isn't expired
       const { Types } = require('mongoose');
-      const sessions = await this.sessionModel.find({ userId: new Types.ObjectId(payload.sub as string) });
+      const sessions = await this.sessionModel.find({
+        userId: new Types.ObjectId(payload.sub as string),
+      });
       let validSession = null;
       for (const session of sessions) {
         if (session.expiresAt > new Date()) {
-          const isMatch = await bcrypt.compare(refreshToken, session.refreshTokenHash);
+          const isMatch = await bcrypt.compare(
+            refreshToken,
+            session.refreshTokenHash,
+          );
           if (isMatch) {
             validSession = session;
             break;
@@ -84,7 +91,9 @@ export class AuthService {
 
       const newPayload = { email: payload.email, sub: payload.sub };
       const newAccessToken = this.jwtService.sign(newPayload);
-      const newRefreshToken = this.jwtService.sign(newPayload, { expiresIn: '7d' });
+      const newRefreshToken = this.jwtService.sign(newPayload, {
+        expiresIn: '7d',
+      });
       const newRefreshTokenHash = await bcrypt.hash(newRefreshToken, 10);
 
       const expiresAt = new Date();
@@ -107,18 +116,25 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     try {
-      const payload = this.jwtService.verify(refreshToken, { ignoreExpiration: true });
+      const payload = this.jwtService.verify(refreshToken, {
+        ignoreExpiration: true,
+      });
       const { Types } = require('mongoose');
-      const sessions = await this.sessionModel.find({ userId: new Types.ObjectId(payload.sub as string) });
-      
+      const sessions = await this.sessionModel.find({
+        userId: new Types.ObjectId(payload.sub as string),
+      });
+
       for (const session of sessions) {
-        const isMatch = await bcrypt.compare(refreshToken, session.refreshTokenHash);
+        const isMatch = await bcrypt.compare(
+          refreshToken,
+          session.refreshTokenHash,
+        );
         if (isMatch) {
           await this.sessionModel.findByIdAndDelete(session._id);
           break;
         }
       }
-      
+
       return { message: 'Logged out successfully' };
     } catch (e) {
       throw new UnauthorizedException('Invalid token');

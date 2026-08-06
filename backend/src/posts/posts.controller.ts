@@ -45,7 +45,7 @@ export class PostsController {
   @Post()
   async create(@Req() req: Request, @Body() createPostDto: CreatePostDto) {
     const user: any = req.user;
-    return this.postsService.create(user.id, createPostDto);
+    return this.postsService.create(user, createPostDto);
   }
 
   @ApiOperation({ summary: 'Subscribe to real-time post updates' })
@@ -95,8 +95,13 @@ export class PostsController {
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Put(':id')
-  async update(@Param('id') id: string, @Body() updatePostDto: UpdatePostDto) {
-    return this.postsService.update(id, updatePostDto);
+  async update(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() updatePostDto: UpdatePostDto,
+  ) {
+    const user: any = req.user;
+    return this.postsService.update(id, updatePostDto, user);
   }
 
   @ApiOperation({ summary: 'Delete a post' })
@@ -104,8 +109,9 @@ export class PostsController {
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Delete(':id')
-  async remove(@Param('id') id: string) {
-    await this.postsService.delete(id);
+  async remove(@Req() req: Request, @Param('id') id: string) {
+    const user: any = req.user;
+    await this.postsService.delete(id, user);
     return { message: 'Post deleted successfully' };
   }
 
@@ -114,8 +120,9 @@ export class PostsController {
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/schedule')
-  async schedulePost(@Param('id') id: string) {
-    await this.postsService.schedulePost(id);
+  async schedulePost(@Req() req: Request, @Param('id') id: string) {
+    const user: any = req.user;
+    await this.postsService.schedulePost(id, user);
     return {
       message: 'Post successfully scheduled',
       status: 'scheduled',
@@ -123,12 +130,16 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Cancel a scheduled post' })
-  @ApiResponse({ status: 200, description: 'Post schedule successfully cancelled.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Post schedule successfully cancelled.',
+  })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/cancel-schedule')
-  async cancelSchedule(@Param('id') id: string) {
-    await this.postsService.cancelSchedule(id);
+  async cancelSchedule(@Req() req: Request, @Param('id') id: string) {
+    const user: any = req.user;
+    await this.postsService.cancelSchedule(id, user);
     return {
       message: 'Post schedule successfully cancelled',
       status: 'draft',
@@ -136,12 +147,16 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Publish a post immediately' })
-  @ApiResponse({ status: 200, description: 'Post successfully queued for immediate publication.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Post successfully queued for immediate publication.',
+  })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/publish-now')
-  async publishNow(@Param('id') id: string) {
-    await this.postsService.publishNow(id);
+  async publishNow(@Req() req: Request, @Param('id') id: string) {
+    const user: any = req.user;
+    await this.postsService.publishNow(id, user);
     return {
       message: 'Post submitted for immediate publication',
       status: 'scheduled',
@@ -201,7 +216,10 @@ export class PostsController {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, cb) => {
-          const filename: string = path.parse(file.originalname).name.replace(/\s/g, '') + '-' + uuidv4();
+          const filename: string =
+            path.parse(file.originalname).name.replace(/\s/g, '') +
+            '-' +
+            uuidv4();
           const extension: string = path.parse(file.originalname).ext;
           cb(null, `${filename}${extension}`);
         },

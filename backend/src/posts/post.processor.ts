@@ -20,8 +20,14 @@ export class PostProcessor extends WorkerHost {
   async process(job: Job<any, any, string>): Promise<any> {
     const { postId } = job.data;
     const attempt = job.attemptsMade + 1;
-    this.logger.log(`Processing job ${job.id} for post ${postId} (Attempt ${attempt})`);
-    await this.auditLogsService.createLog('publish_attempt', `Attempt ${attempt} to publish post`, { postId });
+    this.logger.log(
+      `Processing job ${job.id} for post ${postId} (Attempt ${attempt})`,
+    );
+    await this.auditLogsService.createLog(
+      'publish_attempt',
+      `Attempt ${attempt} to publish post`,
+      { postId },
+    );
 
     try {
       const post = await this.postsService.findById(postId);
@@ -29,10 +35,9 @@ export class PostProcessor extends WorkerHost {
 
       // DUMMY LOGIC: Randomly succeed or fail
       // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       const isSuccess = Math.random() > 0.5;
-
 
       if (!isSuccess) {
         const errorReasons = [
@@ -40,16 +45,21 @@ export class PostProcessor extends WorkerHost {
           'Account disconnected',
           'Media format not supported by platform',
           'Post content violates community guidelines',
-          'Network timeout during upload'
+          'Network timeout during upload',
         ];
-        const randomError = errorReasons[Math.floor(Math.random() * errorReasons.length)];
+        const randomError =
+          errorReasons[Math.floor(Math.random() * errorReasons.length)];
         throw new Error(randomError);
       }
 
       // 3. Success: Update status to published
       await this.postsService.updateStatus(postId, 'published');
       this.logger.log(`Post ${postId} successfully published.`);
-      await this.auditLogsService.createLog('publish_success', `Post published successfully on attempt ${attempt}`, { postId });
+      await this.auditLogsService.createLog(
+        'publish_success',
+        `Post published successfully on attempt ${attempt}`,
+        { postId },
+      );
 
       return { status: 'published' };
     } catch (error: any) {
@@ -60,11 +70,21 @@ export class PostProcessor extends WorkerHost {
 
       // If this is the last attempt (job.attemptsMade is 0-indexed, opts.attempts is total)
       if (job.attemptsMade >= (job.opts.attempts || 1) - 1) {
-        this.logger.warn(`Max retries reached for post ${postId}. Marking as failed.`);
+        this.logger.warn(
+          `Max retries reached for post ${postId}. Marking as failed.`,
+        );
         await this.postsService.updateStatus(postId, 'failed', error.message);
-        await this.auditLogsService.createLog('publish_failed', `Permanent failure after ${attempt} attempts: ${error.message}`, { postId });
+        await this.auditLogsService.createLog(
+          'publish_failed',
+          `Permanent failure after ${attempt} attempts: ${error.message}`,
+          { postId },
+        );
       } else {
-        await this.auditLogsService.createLog('publish_failed', `Attempt ${attempt} failed: ${error.message}. Retrying...`, { postId });
+        await this.auditLogsService.createLog(
+          'publish_failed',
+          `Attempt ${attempt} failed: ${error.message}. Retrying...`,
+          { postId },
+        );
       }
 
       // Re-throw to let BullMQ handle the backoff/retry

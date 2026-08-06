@@ -10,20 +10,20 @@ import cookieParser from 'cookie-parser';
 describe('End-to-End Test (e2e)', () => {
   let app: INestApplication<App>;
   let connection: Connection;
-  
+
   let user1Cookies: string[];
   let user2Cookies: string[];
-  
+
   let workspaceId: string;
   let postId: string;
-  
+
   let user1Id: string;
   let user2Id: string;
 
   beforeAll(async () => {
     // Override MONGO_URI to use a test database
     process.env.MONGO_URI = 'mongodb://localhost:27017/social_db_test';
-    
+
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -31,11 +31,11 @@ describe('End-to-End Test (e2e)', () => {
     app = moduleFixture.createNestApplication();
     app.use(cookieParser());
     app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
-    
+
     await app.init();
-    
+
     connection = await moduleFixture.get(getConnectionToken());
-    
+
     // Drop the database to start clean
     await connection.db?.dropDatabase();
   });
@@ -51,7 +51,7 @@ describe('End-to-End Test (e2e)', () => {
         .post('/auth/register')
         .send({ email: 'user1@example.com', password: 'Password123' })
         .expect(201);
-      
+
       expect(res.body).toHaveProperty('_id');
       expect(res.body.email).toBe('user1@example.com');
       user1Id = res.body._id;
@@ -62,7 +62,7 @@ describe('End-to-End Test (e2e)', () => {
         .post('/auth/register')
         .send({ email: 'user2@example.com', password: 'Password123' })
         .expect(201);
-      
+
       user2Id = res.body._id;
     });
 
@@ -70,9 +70,9 @@ describe('End-to-End Test (e2e)', () => {
       const res = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: 'user1@example.com', password: 'Password123' });
-      
+
       console.log('Login Response:', res.status, res.body);
-      
+
       expect(res.status).toBe(200);
       user1Cookies = res.headers['set-cookie'];
       expect(user1Cookies).toBeDefined();
@@ -83,7 +83,7 @@ describe('End-to-End Test (e2e)', () => {
         .post('/auth/login')
         .send({ email: 'user2@example.com', password: 'Password123' })
         .expect(200);
-      
+
       user2Cookies = res.headers['set-cookie'];
       expect(user2Cookies).toBeDefined();
     });
@@ -93,7 +93,7 @@ describe('End-to-End Test (e2e)', () => {
         .post('/auth/refresh')
         .set('Cookie', user1Cookies)
         .expect(200);
-      
+
       expect(res.body.message).toBe('Token refreshed successfully');
       // Update cookies with new ones
       user1Cookies = res.headers['set-cookie'];
@@ -108,7 +108,7 @@ describe('End-to-End Test (e2e)', () => {
         .set('Cookie', user1Cookies)
         .send({ name: 'User 1 Workspace' })
         .expect(201);
-      
+
       workspaceId = res.body._id;
       expect(workspaceId).toBeDefined();
     });
@@ -133,7 +133,7 @@ describe('End-to-End Test (e2e)', () => {
           mediaUrls: [],
         })
         .expect(201);
-      
+
       postId = res.body._id;
       expect(postId).toBeDefined();
       expect(res.body.status).toBe('draft');
@@ -144,7 +144,7 @@ describe('End-to-End Test (e2e)', () => {
         .get(`/posts?workspaceId=${workspaceId}`)
         .set('Cookie', user1Cookies)
         .expect(200);
-      
+
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBe(1);
     });
@@ -177,7 +177,7 @@ describe('End-to-End Test (e2e)', () => {
         .post(`/posts/${postId}/schedule`)
         .set('Cookie', user1Cookies)
         .expect(201);
-      
+
       expect(res.body.message).toBe('Post successfully scheduled');
     });
 
@@ -198,8 +198,10 @@ describe('End-to-End Test (e2e)', () => {
         .post(`/workspaces/${workspaceId}/integrations/mock-oauth`)
         .set('Cookie', user1Cookies)
         .expect(201);
-      
-      expect(res.body.message).toBe('Successfully connected to Mock Social Provider');
+
+      expect(res.body.message).toBe(
+        'Successfully connected to Mock Social Provider',
+      );
       expect(res.body.token).toBeDefined();
     });
 
@@ -208,7 +210,7 @@ describe('End-to-End Test (e2e)', () => {
         .get(`/posts/${postId}/analytics`)
         .set('Cookie', user1Cookies)
         .expect(200);
-      
+
       expect(res.body.views).toBeDefined();
       expect(res.body.likes).toBeDefined();
     });
@@ -222,7 +224,7 @@ describe('End-to-End Test (e2e)', () => {
           details: 'Post successfully published on external platform',
         })
         .expect(201); // Controller without decorator might default to 201 for POST
-      
+
       expect(res.body.message).toBe('Webhook processed successfully');
     });
   });
@@ -233,7 +235,7 @@ describe('End-to-End Test (e2e)', () => {
         .get('/workspaces')
         .set('Cookie', user1Cookies)
         .expect(200);
-      
+
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body.length).toBeGreaterThanOrEqual(1);
       expect(res.body[0].name).toBe('User 1 Workspace');
@@ -246,7 +248,7 @@ describe('End-to-End Test (e2e)', () => {
         .post('/auth/logout')
         .set('Cookie', user1Cookies)
         .expect(200);
-      
+
       expect(res.body.message).toBe('Logged out successfully');
     });
   });

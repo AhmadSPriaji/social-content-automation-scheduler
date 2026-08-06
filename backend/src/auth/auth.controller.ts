@@ -1,7 +1,23 @@
-import { Controller, Post, Get, Body, HttpCode, HttpStatus, Res, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Res,
+  Req,
+  UnauthorizedException,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response, Request } from 'express';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
-import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiCookieAuth,
+} from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -25,7 +41,10 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Logged in successfully' })
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() body: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() body: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const tokens = await this.authService.login(body.email, body.password);
     this.setCookies(res, tokens.accessToken, tokens.refreshToken);
     return { message: 'Logged in successfully' };
@@ -36,9 +55,13 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'Token refreshed successfully' })
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const refreshToken = req.cookies['refreshToken'];
-    if (!refreshToken) throw new UnauthorizedException('No refresh token provided');
+    if (!refreshToken)
+      throw new UnauthorizedException('No refresh token provided');
 
     const tokens = await this.authService.refresh(refreshToken);
     this.setCookies(res, tokens.accessToken, tokens.refreshToken);

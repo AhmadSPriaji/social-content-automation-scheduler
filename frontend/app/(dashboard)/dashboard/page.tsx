@@ -12,7 +12,7 @@ import { ViewPostModal } from '@/components/dashboard/view-post-modal';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -130,7 +130,7 @@ export default function DashboardPage() {
   });
 
   const activeWorkspace = workspaces.find((w) => w._id === activeWorkspaceId);
-  const userRole = activeWorkspace?.members.find((m) => m.userId === user?._id)?.role;
+  const userRole = activeWorkspace?.members.find((m) => m.userId === user?.id)?.role;
   const isViewer = userRole === 'viewer';
 
   const { data: posts = [], isLoading, isError, refetch } = useQuery<Post[]>({

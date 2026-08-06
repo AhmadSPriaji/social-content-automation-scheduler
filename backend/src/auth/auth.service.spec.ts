@@ -64,18 +64,18 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException if user not found', async () => {
       usersService.findByEmail.mockResolvedValue(null);
 
-      await expect(service.login('wrong@example.com', 'password')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.login('wrong@example.com', 'password'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should throw UnauthorizedException if password does not match', async () => {
       usersService.findByEmail.mockResolvedValue(mockUser);
       (bcrypt.compare as jest.Mock).mockResolvedValue(false);
 
-      await expect(service.login('test@example.com', 'wrongpassword')).rejects.toThrow(
-        UnauthorizedException,
-      );
+      await expect(
+        service.login('test@example.com', 'wrongpassword'),
+      ).rejects.toThrow(UnauthorizedException);
     });
 
     it('should return tokens if login is successful', async () => {
@@ -95,10 +95,16 @@ describe('AuthService', () => {
       (bcrypt.hash as jest.Mock).mockResolvedValue('hashed_pw');
       usersService.create.mockResolvedValue(mockUser);
 
-      const result = await service.register('newuser@example.com', 'mypassword');
+      const result = await service.register(
+        'newuser@example.com',
+        'mypassword',
+      );
 
       expect(bcrypt.hash).toHaveBeenCalledWith('mypassword', 10);
-      expect(usersService.create).toHaveBeenCalledWith('newuser@example.com', 'hashed_pw');
+      expect(usersService.create).toHaveBeenCalledWith(
+        'newuser@example.com',
+        'hashed_pw',
+      );
       expect(result).toEqual({ _id: mockUser._id, email: mockUser.email });
     });
   });
@@ -117,20 +123,36 @@ describe('AuthService', () => {
       const jwtService = require('@nestjs/jwt').JwtService.prototype;
       // mock the implementation directly since it's injected
       const mockJwtService = {
-        verify: jest.fn().mockImplementation(() => { throw new Error('invalid'); }),
+        verify: jest.fn().mockImplementation(() => {
+          throw new Error('invalid');
+        }),
       };
-      const serviceWithMockJwt = new AuthService(usersService, mockJwtService as any, MockSessionModel as any);
+      const serviceWithMockJwt = new AuthService(
+        usersService,
+        mockJwtService as any,
+        MockSessionModel as any,
+      );
 
-      await expect(serviceWithMockJwt.refresh('bad_token')).rejects.toThrow(UnauthorizedException);
+      await expect(serviceWithMockJwt.refresh('bad_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should throw UnauthorizedException if no matching session found', async () => {
       const jwtService = require('@nestjs/jwt').JwtService.prototype;
-      const mockJwtService = { verify: jest.fn().mockReturnValue(validPayload) };
+      const mockJwtService = {
+        verify: jest.fn().mockReturnValue(validPayload),
+      };
       MockSessionModel.find.mockResolvedValue([]); // no sessions
 
-      const serviceWithMockJwt = new AuthService(usersService, mockJwtService as any, MockSessionModel as any);
-      await expect(serviceWithMockJwt.refresh('valid_token')).rejects.toThrow(UnauthorizedException);
+      const serviceWithMockJwt = new AuthService(
+        usersService,
+        mockJwtService as any,
+        MockSessionModel as any,
+      );
+      await expect(serviceWithMockJwt.refresh('valid_token')).rejects.toThrow(
+        UnauthorizedException,
+      );
     });
 
     it('should return new tokens if session is valid and hash matches', async () => {
@@ -142,12 +164,18 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_rt');
 
-      const serviceWithMockJwt = new AuthService(usersService, mockJwtService as any, MockSessionModel as any);
+      const serviceWithMockJwt = new AuthService(
+        usersService,
+        mockJwtService as any,
+        MockSessionModel as any,
+      );
       const result = await serviceWithMockJwt.refresh('valid_token');
 
       expect(result).toHaveProperty('accessToken', 'newMockToken');
       expect(result).toHaveProperty('refreshToken', 'newMockToken');
-      expect(MockSessionModel.findByIdAndDelete).toHaveBeenCalledWith(validSession._id);
+      expect(MockSessionModel.findByIdAndDelete).toHaveBeenCalledWith(
+        validSession._id,
+      );
     });
   });
 });

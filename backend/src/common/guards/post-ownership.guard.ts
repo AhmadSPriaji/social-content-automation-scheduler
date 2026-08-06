@@ -1,4 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  CanActivate,
+  ExecutionContext,
+  ForbiddenException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { WorkspaceRole } from '../../workspaces/schemas/workspace.schema';
@@ -14,10 +19,10 @@ export class PostOwnershipGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const requiredRoles = this.reflector.getAllAndOverride<WorkspaceRole[]>(ROLES_KEY, [
-      context.getHandler(),
-      context.getClass(),
-    ]);
+    const requiredRoles = this.reflector.getAllAndOverride<WorkspaceRole[]>(
+      ROLES_KEY,
+      [context.getHandler(), context.getClass()],
+    );
 
     const request = context.switchToHttp().getRequest();
     const user = request.user;
@@ -28,12 +33,12 @@ export class PostOwnershipGuard implements CanActivate {
     }
 
     if (!postId) {
-       throw new ForbiddenException('Post ID missing from parameters');
+      throw new ForbiddenException('Post ID missing from parameters');
     }
 
     const post = await this.postsService.findById(postId);
     if (!post) {
-       throw new ForbiddenException('Post not found');
+      throw new ForbiddenException('Post not found');
     }
 
     const workspaceId = post.workspaceId.toString();
@@ -42,18 +47,22 @@ export class PostOwnershipGuard implements CanActivate {
       throw new ForbiddenException('Workspace not found');
     }
 
-    const member = workspace.members.find((m) => m.userId.toString() === user.id);
+    const member = workspace.members.find(
+      (m) => m.userId.toString() === user.id,
+    );
 
     // If user has a sufficient role to bypass ownership check (e.g. they are ADMIN or EDITOR)
     if (member && requiredRoles && requiredRoles.includes(member.role)) {
-       return true;
+      return true;
     }
 
     // ABAC fallback logic: Check if user is the author of the post.
     if (post.authorId.toString() === user.id) {
-       return true;
+      return true;
     }
-    
-    throw new ForbiddenException('You do not own this resource and lack sufficient workspace role');
+
+    throw new ForbiddenException(
+      'You do not own this resource and lack sufficient workspace role',
+    );
   }
 }
