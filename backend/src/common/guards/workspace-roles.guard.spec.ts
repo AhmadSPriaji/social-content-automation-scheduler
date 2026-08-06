@@ -72,7 +72,9 @@ describe('WorkspaceRolesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue([WorkspaceRole.OWNER]);
     const ctx = createMockContext('user1', 'ws1');
     workspacesService.findById.mockResolvedValue({
-      members: [{ userId: { toString: () => 'user2' }, role: WorkspaceRole.OWNER }],
+      members: [
+        { userId: { toString: () => 'user2' }, role: WorkspaceRole.OWNER },
+      ],
     } as any);
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
@@ -82,17 +84,24 @@ describe('WorkspaceRolesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue([WorkspaceRole.OWNER]);
     const ctx = createMockContext('user1', 'ws1');
     workspacesService.findById.mockResolvedValue({
-      members: [{ userId: { toString: () => 'user1' }, role: WorkspaceRole.VIEWER }],
+      members: [
+        { userId: { toString: () => 'user1' }, role: WorkspaceRole.VIEWER },
+      ],
     } as any);
 
     await expect(guard.canActivate(ctx)).rejects.toThrow(ForbiddenException);
   });
 
   it('should return true if user has required role', async () => {
-    reflector.getAllAndOverride.mockReturnValue([WorkspaceRole.OWNER, WorkspaceRole.EDITOR]);
+    reflector.getAllAndOverride.mockReturnValue([
+      WorkspaceRole.OWNER,
+      WorkspaceRole.EDITOR,
+    ]);
     const ctx = createMockContext('user1', 'ws1');
     workspacesService.findById.mockResolvedValue({
-      members: [{ userId: { toString: () => 'user1' }, role: WorkspaceRole.EDITOR }],
+      members: [
+        { userId: { toString: () => 'user1' }, role: WorkspaceRole.EDITOR },
+      ],
     } as any);
 
     await expect(guard.canActivate(ctx)).resolves.toBe(true);

@@ -95,7 +95,11 @@ export class PostsController {
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Put(':id')
-  async update(@Req() req: Request, @Param('id') id: string, @Body() updatePostDto: UpdatePostDto) {
+  async update(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() updatePostDto: UpdatePostDto,
+  ) {
     const user: any = req.user;
     return this.postsService.update(id, updatePostDto, user);
   }
@@ -126,7 +130,10 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Cancel a scheduled post' })
-  @ApiResponse({ status: 200, description: 'Post schedule successfully cancelled.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Post schedule successfully cancelled.',
+  })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/cancel-schedule')
@@ -140,7 +147,10 @@ export class PostsController {
   }
 
   @ApiOperation({ summary: 'Publish a post immediately' })
-  @ApiResponse({ status: 200, description: 'Post successfully queued for immediate publication.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Post successfully queued for immediate publication.',
+  })
   @UseGuards(JwtAuthGuard, PostOwnershipGuard)
   @Roles(WorkspaceRole.OWNER, WorkspaceRole.EDITOR)
   @Post(':id/publish-now')
@@ -206,7 +216,10 @@ export class PostsController {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, cb) => {
-          const filename: string = path.parse(file.originalname).name.replace(/\s/g, '') + '-' + uuidv4();
+          const filename: string =
+            path.parse(file.originalname).name.replace(/\s/g, '') +
+            '-' +
+            uuidv4();
           const extension: string = path.parse(file.originalname).ext;
           cb(null, `${filename}${extension}`);
         },

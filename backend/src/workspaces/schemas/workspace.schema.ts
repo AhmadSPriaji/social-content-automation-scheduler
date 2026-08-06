@@ -16,7 +16,8 @@ export class WorkspaceMember {
   role: WorkspaceRole;
 }
 
-export const WorkspaceMemberSchema = SchemaFactory.createForClass(WorkspaceMember);
+export const WorkspaceMemberSchema =
+  SchemaFactory.createForClass(WorkspaceMember);
 
 @Schema({ _id: false })
 export class WorkspaceInvitation {
@@ -30,7 +31,8 @@ export class WorkspaceInvitation {
   invitedAt: Date;
 }
 
-export const WorkspaceInvitationSchema = SchemaFactory.createForClass(WorkspaceInvitation);
+export const WorkspaceInvitationSchema =
+  SchemaFactory.createForClass(WorkspaceInvitation);
 
 @Schema({ timestamps: true })
 export class Workspace extends Document {

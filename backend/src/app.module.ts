@@ -38,7 +38,9 @@ import Redis from 'ioredis';
           port: configService.get<number>('SMTP_PORT') || 587,
           secure: false, // true for 465, false for other ports
           auth: {
-            user: configService.get<string>('SMTP_USER') || 'ethereal.user@ethereal.email',
+            user:
+              configService.get<string>('SMTP_USER') ||
+              'ethereal.user@ethereal.email',
             pass: configService.get<string>('SMTP_PASS') || 'ethereal.pass',
           },
         },
@@ -52,15 +54,18 @@ import Redis from 'ioredis';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         connection: {
-          url: configService.get<string>('REDIS_URL') || 'redis://localhost:6379',
+          url:
+            configService.get<string>('REDIS_URL') || 'redis://localhost:6379',
         },
       }),
       inject: [ConfigService],
     }),
-    ThrottlerModule.forRoot([{
-      ttl: 60000, // 60 seconds
-      limit: 100, // 100 requests per ttl per ip (Global default)
-    }]),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60000, // 60 seconds
+        limit: 100, // 100 requests per ttl per ip (Global default)
+      },
+    ]),
     UsersModule,
     WorkspacesModule,
     AuthModule,
@@ -77,7 +82,9 @@ import Redis from 'ioredis';
     {
       provide: 'REDIS_CLIENT',
       useFactory: (configService: ConfigService) => {
-        return new Redis(configService.get<string>('REDIS_URL') || 'redis://localhost:6379');
+        return new Redis(
+          configService.get<string>('REDIS_URL') || 'redis://localhost:6379',
+        );
       },
       inject: [ConfigService],
     },

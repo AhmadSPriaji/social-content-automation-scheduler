@@ -1,7 +1,29 @@
-import { Controller, Post, Body, Param, UseGuards, Req, Get, Query, Res, Delete, Patch } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiCookieAuth } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  Param,
+  UseGuards,
+  Req,
+  Get,
+  Query,
+  Res,
+  Delete,
+  Patch,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiCookieAuth,
+} from '@nestjs/swagger';
 import { WorkspacesService } from './workspaces.service';
-import { CreateWorkspaceDto, AddMemberDto, UpdateMemberRoleDto, UpdateWorkspaceDto } from './dto/workspaces.dto';
+import {
+  CreateWorkspaceDto,
+  AddMemberDto,
+  UpdateMemberRoleDto,
+  UpdateWorkspaceDto,
+} from './dto/workspaces.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { WorkspaceRolesGuard } from '../common/guards/workspace-roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -22,7 +44,9 @@ export class WorkspacesController {
     return this.workspacesService.findAllForUser(userId);
   }
 
-  @ApiOperation({ summary: 'Get pending invitations for the authenticated user' })
+  @ApiOperation({
+    summary: 'Get pending invitations for the authenticated user',
+  })
   @ApiResponse({ status: 200, description: 'Return all pending invitations.' })
   @Get('invitations/pending')
   async getPendingInvitations(@Req() req: any) {
@@ -33,7 +57,10 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Get details of a specific pending invitation' })
   @ApiResponse({ status: 200, description: 'Return invitation details.' })
   @Get(':workspaceId/invitation')
-  async getInvitation(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+  async getInvitation(
+    @Param('workspaceId') workspaceId: string,
+    @Req() req: any,
+  ) {
     const email = req.user.email;
     return this.workspacesService.getInvitationDetails(workspaceId, email);
   }
@@ -60,7 +87,10 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Leave a workspace' })
   @ApiResponse({ status: 200, description: 'Left the workspace successfully.' })
   @Delete(':workspaceId/leave')
-  async leaveWorkspace(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+  async leaveWorkspace(
+    @Param('workspaceId') workspaceId: string,
+    @Req() req: any,
+  ) {
     const userId = req.user.id;
     await this.workspacesService.leaveWorkspace(workspaceId, userId);
     return { message: 'Left workspace successfully' };
@@ -72,7 +102,10 @@ export class WorkspacesController {
   @UseGuards(WorkspaceRolesGuard)
   @Roles(WorkspaceRole.OWNER)
   @Patch(':workspaceId')
-  async updateWorkspaceName(@Param('workspaceId') workspaceId: string, @Body() body: UpdateWorkspaceDto) {
+  async updateWorkspaceName(
+    @Param('workspaceId') workspaceId: string,
+    @Body() body: UpdateWorkspaceDto,
+  ) {
     return this.workspacesService.updateWorkspaceName(workspaceId, body.name);
   }
 
@@ -121,7 +154,10 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Accept an invitation' })
   @ApiResponse({ status: 200, description: 'Invitation accepted.' })
   @Post(':workspaceId/invitations/accept')
-  async acceptInvitation(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+  async acceptInvitation(
+    @Param('workspaceId') workspaceId: string,
+    @Req() req: any,
+  ) {
     const userId = req.user.id;
     const email = req.user.email;
     await this.workspacesService.acceptInvitation(workspaceId, userId, email);
@@ -131,14 +167,20 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Reject an invitation' })
   @ApiResponse({ status: 200, description: 'Invitation rejected.' })
   @Post(':workspaceId/invitations/reject')
-  async rejectInvitation(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+  async rejectInvitation(
+    @Param('workspaceId') workspaceId: string,
+    @Req() req: any,
+  ) {
     const email = req.user.email;
     await this.workspacesService.rejectInvitation(workspaceId, email);
     return { message: 'Invitation rejected successfully' };
   }
 
   @ApiOperation({ summary: 'Update a member role in a workspace' })
-  @ApiResponse({ status: 200, description: 'Member role updated successfully.' })
+  @ApiResponse({
+    status: 200,
+    description: 'Member role updated successfully.',
+  })
   @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
   @UseGuards(WorkspaceRolesGuard)
   @Roles(WorkspaceRole.OWNER)
@@ -148,7 +190,11 @@ export class WorkspacesController {
     @Param('userId') userId: string,
     @Body() body: UpdateMemberRoleDto,
   ) {
-    await this.workspacesService.updateMemberRole(workspaceId, userId, body.role);
+    await this.workspacesService.updateMemberRole(
+      workspaceId,
+      userId,
+      body.role,
+    );
     return { message: 'Member role updated successfully' };
   }
 
@@ -182,7 +228,10 @@ export class WorkspacesController {
   @ApiOperation({ summary: 'Reddit OAuth Callback' })
   @ApiResponse({ status: 200, description: 'OAuth callback handled.' })
   @Get('reddit/callback')
-  async redditCallback(@Query('state') state: string, @Query('code') code: string) {
+  async redditCallback(
+    @Query('state') state: string,
+    @Query('code') code: string,
+  ) {
     return this.workspacesService.handleRedditCallback(state, code);
   }
 }

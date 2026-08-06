@@ -28,9 +28,7 @@ import {
 
 const inviteSchema = z.object({
   email: z.string().email('Invalid email address'),
-  role: z.enum(['owner', 'editor', 'viewer'], {
-    required_error: 'Please select a role',
-  }),
+  role: z.enum(['owner', 'editor', 'viewer']),
 });
 
 type InviteFormValues = z.infer<typeof inviteSchema>;
