@@ -5,6 +5,7 @@ import { getModelToken } from '@nestjs/mongoose';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { Session } from './schemas/session.schema';
+import { MailerService } from '@nestjs-modules/mailer';
 import * as bcrypt from 'bcrypt';
 
 jest.mock('bcrypt');
@@ -21,6 +22,7 @@ class MockSessionModel {
 describe('AuthService', () => {
   let service: AuthService;
   let usersService: any;
+  let mailerService: any;
 
   const mockUser = {
     _id: 'user123',
@@ -37,6 +39,8 @@ describe('AuthService', () => {
           useValue: {
             findByEmail: jest.fn(),
             create: jest.fn(),
+            update: jest.fn(),
+            findByResetToken: jest.fn(),
           },
         },
         {
@@ -49,11 +53,18 @@ describe('AuthService', () => {
             sign: jest.fn(() => 'mockJwtToken'),
           },
         },
+        {
+          provide: MailerService,
+          useValue: {
+            sendMail: jest.fn(),
+          },
+        },
       ],
     }).compile();
 
     service = module.get<AuthService>(AuthService);
     usersService = module.get(UsersService);
+    mailerService = module.get(MailerService);
   });
 
   it('should be defined', () => {
@@ -130,6 +141,7 @@ describe('AuthService', () => {
       const serviceWithMockJwt = new AuthService(
         usersService,
         mockJwtService as any,
+        mailerService,
         MockSessionModel as any,
       );
 
@@ -148,6 +160,7 @@ describe('AuthService', () => {
       const serviceWithMockJwt = new AuthService(
         usersService,
         mockJwtService as any,
+        mailerService,
         MockSessionModel as any,
       );
       await expect(serviceWithMockJwt.refresh('valid_token')).rejects.toThrow(
@@ -160,13 +173,17 @@ describe('AuthService', () => {
         verify: jest.fn().mockReturnValue(validPayload),
         sign: jest.fn(() => 'newMockToken'),
       };
-      MockSessionModel.find.mockResolvedValue([validSession]);
+      // Provide valid hash match
       (bcrypt.compare as jest.Mock).mockResolvedValue(true);
       (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_rt');
+      
+      const mockSessionArray = [{ ...validSession, remove: jest.fn() }];
+      MockSessionModel.find.mockResolvedValue(mockSessionArray);
 
       const serviceWithMockJwt = new AuthService(
         usersService,
         mockJwtService as any,
+        mailerService,
         MockSessionModel as any,
       );
       const result = await serviceWithMockJwt.refresh('valid_token');
@@ -176,6 +193,79 @@ describe('AuthService', () => {
       expect(MockSessionModel.findByIdAndDelete).toHaveBeenCalledWith(
         validSession._id,
       );
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should return success message even if user not found', async () => {
+      usersService.findByEmail.mockResolvedValue(null);
+      const result = await service.forgotPassword('unknown@example.com');
+      expect(result).toEqual({ message: 'If an account exists, a password reset link has been sent.' });
+      expect(mailerService.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('should update user with reset token and send email', async () => {
+      usersService.findByEmail.mockResolvedValue(mockUser);
+      const result = await service.forgotPassword('test@example.com');
+      
+      expect(usersService.update).toHaveBeenCalledWith(
+        mockUser._id.toString(),
+        expect.objectContaining({
+          resetPasswordToken: expect.any(String),
+          resetPasswordExpires: expect.any(Date),
+        }),
+      );
+      expect(mailerService.sendMail).toHaveBeenCalled();
+      expect(result).toEqual({ message: 'If an account exists, a password reset link has been sent.' });
+    });
+  });
+
+  describe('resetPassword', () => {
+    it('should throw BadRequestException if token is invalid', async () => {
+      usersService.findByResetToken.mockResolvedValue(null);
+      await expect(service.resetPassword('invalid_token', 'newPass123')).rejects.toThrow('Invalid or expired password reset token');
+    });
+
+    it('should update password and clear reset fields if token is valid', async () => {
+      const futureDate = new Date();
+      futureDate.setHours(futureDate.getHours() + 1);
+      usersService.findByResetToken.mockResolvedValue({ ...mockUser, resetPasswordExpires: futureDate });
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_pw');
+
+      const result = await service.resetPassword('valid_token', 'newPass123');
+      
+      expect(bcrypt.hash).toHaveBeenCalledWith('newPass123', 10);
+      expect(usersService.update).toHaveBeenCalledWith(
+        mockUser._id.toString(),
+        expect.objectContaining({
+          passwordHash: 'new_hashed_pw',
+          resetPasswordToken: undefined,
+          resetPasswordExpires: undefined,
+        }),
+      );
+      expect(result).toEqual({ message: 'Password has been reset successfully' });
+    });
+  });
+
+  describe('changePassword', () => {
+    it('should throw BadRequestException if old password does not match', async () => {
+      // Provide findById mock
+      usersService.findById = jest.fn().mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false); // wrong password
+
+      await expect(service.changePassword('user123', 'wrong_old', 'new_pass')).rejects.toThrow('Incorrect old password');
+    });
+
+    it('should update password if old password matches', async () => {
+      usersService.findById = jest.fn().mockResolvedValue(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true); // correct old password
+      (bcrypt.hash as jest.Mock).mockResolvedValue('new_hashed_pw');
+
+      const result = await service.changePassword('user123', 'correct_old', 'new_pass');
+      
+      expect(bcrypt.hash).toHaveBeenCalledWith('new_pass', 10);
+      expect(usersService.update).toHaveBeenCalledWith('user123', { passwordHash: 'new_hashed_pw' });
+      expect(result).toEqual({ message: 'Password changed successfully' });
     });
   });
 });
