@@ -99,6 +99,15 @@ describe('End-to-End Test (e2e)', () => {
       user1Cookies = res.headers['set-cookie'];
       expect(user1Cookies).toBeDefined();
     });
+
+    it('POST /auth/forgot-password - User 1', async () => {
+      const res = await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: 'user1@example.com' })
+        .expect(200);
+
+      expect(res.body.message).toBe('If an account exists, a password reset link has been sent.');
+    });
   });
 
   describe('Workspaces APIs', () => {
@@ -128,6 +137,7 @@ describe('End-to-End Test (e2e)', () => {
         .post('/posts')
         .set('Cookie', user1Cookies)
         .send({
+          title: 'My Scheduled Post',
           workspaceId: workspaceId,
           content: 'Hello this is my first scheduled post!',
           mediaUrls: [],
