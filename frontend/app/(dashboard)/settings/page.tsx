@@ -41,6 +41,12 @@ export default function SettingsPage() {
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
 
+  // Change Password
+  const [oldPassword, setOldPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
   const activeWorkspace = workspaces.find(w => w._id === activeWorkspaceId);
   const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
 
@@ -139,6 +145,25 @@ export default function SettingsPage() {
     }
   };
 
+  const handleChangePassword = async () => {
+    if (newPassword !== confirmPassword) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    setIsChangingPassword(true);
+    try {
+      await api.post('/auth/change-password', { oldPassword, newPassword });
+      toast.success('Password changed successfully');
+      setOldPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to change password');
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
+
   const handleConnectReddit = async () => {
     if (!activeWorkspaceId) return;
     try {
@@ -191,6 +216,35 @@ export default function SettingsPage() {
               <Label>Account ID</Label>
               <Input value={user?.id || ''} readOnly className="bg-muted text-xs font-mono" />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Change Password</CardTitle>
+            <CardDescription>
+              Update your account password.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="oldPassword">Current Password</Label>
+              <Input id="oldPassword" type="password" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input id="newPassword" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm New Password</Label>
+              <Input id="confirmPassword" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} />
+            </div>
+            <Button 
+              onClick={handleChangePassword} 
+              disabled={!oldPassword || !newPassword || !confirmPassword || isChangingPassword}
+            >
+              {isChangingPassword ? 'Updating...' : 'Update Password'}
+            </Button>
           </CardContent>
         </Card>
 

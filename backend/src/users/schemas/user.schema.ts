@@ -8,6 +8,12 @@ export class User extends Document {
 
   @Prop({ required: true })
   passwordHash: string;
+
+  @Prop()
+  resetPasswordToken?: string;
+
+  @Prop()
+  resetPasswordExpires?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

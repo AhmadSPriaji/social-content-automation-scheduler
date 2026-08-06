@@ -184,7 +184,7 @@ export class PostsService {
     const userText = user ? ` by ${user.email}` : '';
     await this.auditLogsService.createLog(
       'post_scheduled',
-      `Post "${post.title}" scheduled for publication at ${post.scheduledAt.toISOString()}${userText}`,
+      `Post "${post.title}" scheduled for publication at ${post.scheduledAt.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' })}${userText}`,
       { postId: id, workspaceId: post.workspaceId.toString() },
     );
 

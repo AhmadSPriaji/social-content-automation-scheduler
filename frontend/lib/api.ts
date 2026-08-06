@@ -18,8 +18,9 @@ api.interceptors.response.use(
         return api(originalRequest);
       } catch (e) {
         if (typeof window !== 'undefined') {
-          const publicRoutes = ['/', '/login', '/register'];
-          if (!publicRoutes.includes(window.location.pathname)) {
+          const publicRoutes = ['/', '/login', '/register', '/forgot-password', '/reset-password'];
+          const isPublic = publicRoutes.some(r => window.location.pathname.startsWith(r));
+          if (!isPublic) {
             window.location.href = '/login?clear=true';
           }
         }
