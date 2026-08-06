@@ -22,6 +22,22 @@ export class WorkspacesController {
     return this.workspacesService.findAllForUser(userId);
   }
 
+  @ApiOperation({ summary: 'Get pending invitations for the authenticated user' })
+  @ApiResponse({ status: 200, description: 'Return all pending invitations.' })
+  @Get('invitations/pending')
+  async getPendingInvitations(@Req() req: any) {
+    const email = req.user.email; // We need email from req.user
+    return this.workspacesService.getPendingInvitations(email);
+  }
+
+  @ApiOperation({ summary: 'Get details of a specific pending invitation' })
+  @ApiResponse({ status: 200, description: 'Return invitation details.' })
+  @Get(':workspaceId/invitation')
+  async getInvitation(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+    const email = req.user.email;
+    return this.workspacesService.getInvitationDetails(workspaceId, email);
+  }
+
   @ApiOperation({ summary: 'Create a new workspace' })
   @ApiResponse({ status: 201, description: 'Workspace created successfully.' })
   @Post()
@@ -39,6 +55,15 @@ export class WorkspacesController {
   async deleteWorkspace(@Param('workspaceId') workspaceId: string) {
     await this.workspacesService.deleteWorkspace(workspaceId);
     return { message: 'Workspace deleted successfully' };
+  }
+
+  @ApiOperation({ summary: 'Leave a workspace' })
+  @ApiResponse({ status: 200, description: 'Left the workspace successfully.' })
+  @Delete(':workspaceId/leave')
+  async leaveWorkspace(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+    const userId = req.user.id;
+    await this.workspacesService.leaveWorkspace(workspaceId, userId);
+    return { message: 'Left workspace successfully' };
   }
 
   @ApiOperation({ summary: 'Update a workspace name' })
@@ -77,6 +102,39 @@ export class WorkspacesController {
   ) {
     await this.workspacesService.removeMember(workspaceId, userId);
     return { message: 'Member removed successfully' };
+  }
+
+  @ApiOperation({ summary: 'Revoke an invitation to a workspace' })
+  @ApiResponse({ status: 200, description: 'Invitation revoked successfully.' })
+  @ApiResponse({ status: 403, description: 'Forbidden (Not OWNER).' })
+  @UseGuards(WorkspaceRolesGuard)
+  @Roles(WorkspaceRole.OWNER)
+  @Delete(':workspaceId/invitations/:email')
+  async revokeInvitation(
+    @Param('workspaceId') workspaceId: string,
+    @Param('email') email: string,
+  ) {
+    await this.workspacesService.revokeInvitation(workspaceId, email);
+    return { message: 'Invitation revoked successfully' };
+  }
+
+  @ApiOperation({ summary: 'Accept an invitation' })
+  @ApiResponse({ status: 200, description: 'Invitation accepted.' })
+  @Post(':workspaceId/invitations/accept')
+  async acceptInvitation(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+    const userId = req.user.id;
+    const email = req.user.email;
+    await this.workspacesService.acceptInvitation(workspaceId, userId, email);
+    return { message: 'Invitation accepted successfully' };
+  }
+
+  @ApiOperation({ summary: 'Reject an invitation' })
+  @ApiResponse({ status: 200, description: 'Invitation rejected.' })
+  @Post(':workspaceId/invitations/reject')
+  async rejectInvitation(@Param('workspaceId') workspaceId: string, @Req() req: any) {
+    const email = req.user.email;
+    await this.workspacesService.rejectInvitation(workspaceId, email);
+    return { message: 'Invitation rejected successfully' };
   }
 
   @ApiOperation({ summary: 'Update a member role in a workspace' })

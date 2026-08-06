@@ -6,6 +6,7 @@ import { Post } from '../posts/schemas/post.schema';
 import { UsersService } from '../users/users.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { ConfigService } from '@nestjs/config';
+import { MailerService } from '@nestjs-modules/mailer';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import Redis from 'ioredis';
@@ -21,6 +22,7 @@ export class WorkspacesService {
     private usersService: UsersService,
     private auditLogsService: AuditLogsService,
     private configService: ConfigService,
+    private mailerService: MailerService,
   ) {
     this.redisClient = new Redis(this.configService.get<string>('REDIS_URL') || 'redis://localhost:6379');
   }
@@ -34,6 +36,27 @@ export class WorkspacesService {
     return this.workspaceModel.find({ 'members.userId': new Types.ObjectId(userId) })
       .populate('members.userId', 'email name')
       .exec();
+  }
+
+  async getPendingInvitations(email: string): Promise<Workspace[]> {
+    return this.workspaceModel.find({ 'pendingInvitations.email': email })
+      .select('name pendingInvitations') // Only return necessary fields
+      .exec();
+  }
+
+  async getInvitationDetails(workspaceId: string, email: string): Promise<any> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    const invite = workspace.pendingInvitations.find(inv => inv.email === email);
+    if (!invite) throw new NotFoundException('Invitation not found');
+
+    return {
+      workspaceId: workspace._id,
+      name: workspace.name,
+      role: invite.role,
+      invitedAt: invite.invitedAt,
+    };
   }
 
   async getAuditLogs(workspaceId: string) {
@@ -102,31 +125,132 @@ export class WorkspacesService {
   }
 
   async addMember(workspaceId: string, email: string, role: WorkspaceRole): Promise<Workspace> {
-    const user = await this.usersService.findByEmail(email);
-    if (!user) {
-      throw new NotFoundException('User with this email not found');
-    }
-
     const workspace = await this.workspaceModel.findById(workspaceId);
     if (!workspace) {
       throw new NotFoundException('Workspace not found');
     }
-    const userId = user._id.toString();
 
     // Check if user is already a member
-    const existingMember = workspace.members.find((m) => m.userId.toString() === userId);
-    if (existingMember) {
-      throw new ForbiddenException('User is already a member of this workspace');
-    } else {
+    const existingUser = await this.usersService.findByEmail(email);
+    if (existingUser) {
+      const existingMember = workspace.members.find((m) => m.userId.toString() === existingUser._id.toString());
+      if (existingMember) {
+        throw new ForbiddenException('User is already a member of this workspace');
+      }
+    }
+
+    // Check if already invited
+    const existingInvite = workspace.pendingInvitations.find(inv => inv.email === email);
+    if (existingInvite) {
+      throw new BadRequestException('User has already been invited');
+    }
+
+    workspace.pendingInvitations.push({ email, role, invitedAt: new Date() });
+    const saved = await workspace.save();
+
+    await this.auditLogsService.createLog('member_invited', `User ${email} invited as ${role}`, { workspaceId });
+
+    // Send email
+    try {
+      const appUrl = this.configService.get<string>('APP_URL') || 'http://localhost:3000';
+      const inviteUrl = `${appUrl}/invitations/${workspace._id.toString()}`;
+      await this.mailerService.sendMail({
+        to: email,
+        subject: `You've been invited to join ${workspace.name} on AutoSocial`,
+        html: `
+          <div style="font-family: sans-serif; max-w: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #0f172a; margin-top: 0;">Invitation to join ${workspace.name}</h2>
+            <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+              Hello,
+            </p>
+            <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+              You have been invited to collaborate in the workspace <strong>${workspace.name}</strong> as an <strong>${role}</strong>.
+            </p>
+            <p style="color: #475569; font-size: 16px; line-height: 1.5; margin-bottom: 24px;">
+              AutoSocial helps teams plan, schedule, and automate their social media content seamlessly.
+            </p>
+            <a href="${inviteUrl}" style="display: inline-block; background-color: #0f172a; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 6px; font-weight: 500;">
+              View Invitation
+            </a>
+            <p style="color: #64748b; font-size: 14px; margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+              If you don't have an account yet, you'll be prompted to create one first.<br/>
+              Or you can copy and paste this link into your browser: <br/>
+              <a href="${inviteUrl}" style="color: #2563eb;">${inviteUrl}</a>
+            </p>
+          </div>
+        `,
+      });
+    } catch (e) {
+      console.error('Failed to send invitation email:', e);
+      // We don't fail the request if email fails, but in production we might want to log it to an error tracking system
+    }
+
+    return saved;
+  }
+
+  async revokeInvitation(workspaceId: string, email: string): Promise<Workspace> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    const inviteIndex = workspace.pendingInvitations.findIndex(inv => inv.email === email);
+    if (inviteIndex === -1) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    workspace.pendingInvitations.splice(inviteIndex, 1);
+    const saved = await workspace.save();
+
+    await this.auditLogsService.createLog('invitation_revoked', `Invitation for ${email} revoked`, { workspaceId });
+    return saved;
+  }
+
+  async acceptInvitation(workspaceId: string, userId: string, email: string): Promise<Workspace> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    const inviteIndex = workspace.pendingInvitations.findIndex(inv => inv.email === email);
+    if (inviteIndex === -1) {
+      throw new NotFoundException('Invitation not found or already processed');
+    }
+
+    const role = workspace.pendingInvitations[inviteIndex].role;
+    workspace.pendingInvitations.splice(inviteIndex, 1);
+
+    // Check if already member
+    if (!workspace.members.some(m => m.userId.toString() === userId)) {
       workspace.members.push({ userId: new Types.ObjectId(userId), role });
     }
 
     const saved = await workspace.save();
-
-    // Log member addition
-    await this.auditLogsService.createLog('member_added', `User ${email} added as ${role}`, { workspaceId });
-
+    await this.auditLogsService.createLog('member_joined', `User ${email} accepted invitation and joined as ${role}`, { workspaceId });
     return saved;
+  }
+
+  async rejectInvitation(workspaceId: string, email: string): Promise<Workspace> {
+    return this.revokeInvitation(workspaceId, email); // Logic is the same, just remove from pending array
+  }
+
+  async leaveWorkspace(workspaceId: string, userId: string): Promise<void> {
+    const workspace = await this.workspaceModel.findById(workspaceId);
+    if (!workspace) throw new NotFoundException('Workspace not found');
+
+    const memberIndex = workspace.members.findIndex(m => m.userId.toString() === userId);
+    if (memberIndex === -1) {
+      throw new NotFoundException('User is not a member of this workspace');
+    }
+
+    const member = workspace.members[memberIndex];
+    if (member.role === WorkspaceRole.OWNER) {
+      throw new BadRequestException('Owners cannot leave the workspace. You must transfer ownership first or delete the workspace.');
+    }
+
+    workspace.members.splice(memberIndex, 1);
+    await workspace.save();
+
+    const user = await this.usersService.findById(userId);
+    const email = user ? user.email : userId;
+    
+    await this.auditLogsService.createLog('member_left', `User ${email} left the workspace`, { workspaceId });
   }
 
   async removeMember(workspaceId: string, userId: string): Promise<Workspace> {

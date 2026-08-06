@@ -60,12 +60,12 @@ export function InviteMemberModal({ open, onOpenChange, workspaceId, onSuccess }
         email: data.email,
         role: data.role,
       });
-      toast.success('Member invited successfully');
+      toast.success('Invitation sent successfully');
       form.reset();
+      onSuccess?.();
       onOpenChange(false);
-      if (onSuccess) onSuccess();
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to invite member');
+      toast.error(error.response?.data?.message || 'Failed to send invitation');
     } finally {
       setIsLoading(false);
     }

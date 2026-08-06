@@ -18,6 +18,20 @@ export class WorkspaceMember {
 
 export const WorkspaceMemberSchema = SchemaFactory.createForClass(WorkspaceMember);
 
+@Schema({ _id: false })
+export class WorkspaceInvitation {
+  @Prop({ required: true })
+  email: string;
+
+  @Prop({ required: true, enum: WorkspaceRole })
+  role: WorkspaceRole;
+
+  @Prop({ default: Date.now })
+  invitedAt: Date;
+}
+
+export const WorkspaceInvitationSchema = SchemaFactory.createForClass(WorkspaceInvitation);
+
 @Schema({ timestamps: true })
 export class Workspace extends Document {
   @Prop({ required: true, unique: true })
@@ -25,6 +39,9 @@ export class Workspace extends Document {
 
   @Prop({ type: [WorkspaceMemberSchema], default: [] })
   members: WorkspaceMember[];
+
+  @Prop({ type: [WorkspaceInvitationSchema], default: [] })
+  pendingInvitations: WorkspaceInvitation[];
 
   @Prop({
     type: [

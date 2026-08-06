@@ -14,6 +14,7 @@ import { WorkspacesModule } from './workspaces/workspaces.module';
 import { AuthModule } from './auth/auth.module';
 import { PostsModule } from './posts/posts.module';
 import { AuditLogsModule } from './audit-logs/audit-logs.module';
+import { MailerModule } from '@nestjs-modules/mailer';
 import Redis from 'ioredis';
 
 @Module({
@@ -26,6 +27,24 @@ import Redis from 'ioredis';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         uri: configService.get<string>('MONGO_URI'),
+      }),
+      inject: [ConfigService],
+    }),
+    MailerModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        transport: {
+          host: configService.get<string>('SMTP_HOST') || 'smtp.ethereal.email',
+          port: configService.get<number>('SMTP_PORT') || 587,
+          secure: false, // true for 465, false for other ports
+          auth: {
+            user: configService.get<string>('SMTP_USER') || 'ethereal.user@ethereal.email',
+            pass: configService.get<string>('SMTP_PASS') || 'ethereal.pass',
+          },
+        },
+        defaults: {
+          from: '"No Reply" <noreply@socialcontent.com>',
+        },
       }),
       inject: [ConfigService],
     }),

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/stores/auth';
 import { useWorkspaceStore } from '@/stores/workspace';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Settings, Trash2, Pencil } from 'lucide-react';
+import { Settings, Trash2, Pencil, LogOut, Link as LinkIcon, Unlink, Check } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { InviteMemberModal } from '@/components/settings/invite-member-modal';
 import {
@@ -37,7 +37,21 @@ export default function SettingsPage() {
   const [newWorkspaceName, setNewWorkspaceName] = useState('');
   const [isSubmittingRename, setIsSubmittingRename] = useState(false);
 
+  // Audit Logs
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+
   const activeWorkspace = workspaces.find(w => w._id === activeWorkspaceId);
+  const fetchWorkspaces = useWorkspaceStore((state) => state.fetchWorkspaces);
+
+  // Poll for workspace updates every 10 seconds (e.g. for new members)
+  useEffect(() => {
+    if (!activeWorkspaceId) return;
+    const interval = setInterval(() => {
+      fetchWorkspaces();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [activeWorkspaceId, fetchWorkspaces]);
 
   const getMemberId = (m: any) => typeof m.userId === 'string' ? m.userId : m.userId._id;
   const getMemberEmail = (m: any) => typeof m.userId === 'object' && m.userId.email ? m.userId.email : 'Unknown email';
@@ -86,6 +100,65 @@ export default function SettingsPage() {
       toast.error(error.response?.data?.message || 'Failed to rename workspace');
     } finally {
       setIsSubmittingRename(false);
+    }
+  };
+
+  const handleLeaveWorkspace = async () => {
+    if (!activeWorkspaceId) return;
+    if (!confirm('Are you sure you want to leave this workspace?')) return;
+    try {
+      await api.delete(`/workspaces/${activeWorkspaceId}/leave`);
+      toast.success('Left workspace successfully');
+      window.location.href = '/dashboard';
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to leave workspace');
+    }
+  };
+
+  const handleRevokeInvitation = async (email: string) => {
+    if (!activeWorkspaceId) return;
+    try {
+      await api.delete(`/workspaces/${activeWorkspaceId}/invitations/${email}`);
+      toast.success('Invitation revoked successfully');
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to revoke invitation');
+    }
+  };
+
+  const fetchAuditLogs = async () => {
+    if (!activeWorkspaceId) return;
+    setIsLoadingLogs(true);
+    try {
+      const res = await api.get(`/workspaces/${activeWorkspaceId}/audit-logs`);
+      setAuditLogs(res.data);
+    } catch (error) {
+      console.error('Failed to fetch audit logs', error);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  const handleConnectReddit = async () => {
+    if (!activeWorkspaceId) return;
+    try {
+      const res = await api.get(`/workspaces/${activeWorkspaceId}/reddit/login`);
+      if (res.data?.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to connect to Reddit');
+    }
+  };
+
+  const handleConnectMockOauth = async () => {
+    if (!activeWorkspaceId) return;
+    try {
+      await api.post(`/workspaces/${activeWorkspaceId}/integrations/mock-oauth`);
+      toast.success('Mock OAuth connected successfully');
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to connect Mock OAuth');
     }
   };
 
@@ -153,20 +226,33 @@ export default function SettingsPage() {
               <Input value={activeWorkspace?._id || ''} readOnly className="bg-muted text-xs font-mono" />
             </div>
             <div className="pt-4 flex gap-2">
-              <Button 
-                variant="outline" 
-                disabled={!isOwner || !activeWorkspaceId}
-                onClick={() => setInviteModalOpen(true)}
-              >
-                Invite Members
-              </Button>
-              <Button 
-                variant="destructive" 
-                disabled={!isOwner || !activeWorkspaceId}
-                onClick={() => setDeleteConfirmOpen(true)}
-              >
-                Delete Workspace
-              </Button>
+              {isOwner ? (
+                <>
+                  <Button 
+                    variant="outline" 
+                    disabled={!activeWorkspaceId}
+                    onClick={() => setInviteModalOpen(true)}
+                  >
+                    Invite Members
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    disabled={!activeWorkspaceId}
+                    onClick={() => setDeleteConfirmOpen(true)}
+                  >
+                    Delete Workspace
+                  </Button>
+                </>
+              ) : (
+                <Button 
+                  variant="destructive" 
+                  disabled={!activeWorkspaceId}
+                  onClick={handleLeaveWorkspace}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Leave Workspace
+                </Button>
+              )}
             </div>
             {!isOwner && activeWorkspaceId && (
               <p className="text-xs text-muted-foreground mt-2">Only the workspace owner can invite members or delete the workspace.</p>
@@ -222,6 +308,122 @@ export default function SettingsPage() {
                   })}
                 </div>
               </div>
+            )}
+
+            {isOwner && activeWorkspace?.pendingInvitations && activeWorkspace.pendingInvitations.length > 0 && (
+              <div className="pt-6 border-t mt-6">
+                <h3 className="font-semibold mb-4 text-sm text-muted-foreground">Pending Invitations</h3>
+                <div className="space-y-3">
+                  {activeWorkspace.pendingInvitations.map((inv: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between bg-muted/10 p-3 rounded-md border border-dashed">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{inv.email}</span>
+                        <span className="text-xs text-muted-foreground">Invited as {inv.role}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-xs text-destructive hover:bg-destructive/10"
+                        onClick={() => handleRevokeInvitation(inv.email)}
+                      >
+                        Revoke
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Connected Accounts</CardTitle>
+            <CardDescription>
+              Integrate social media accounts with your workspace.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-[#FF4500] flex items-center justify-center text-white font-bold">
+                    R
+                  </div>
+                  <div>
+                    <p className="font-medium">Reddit</p>
+                    <p className="text-xs text-muted-foreground">Post to subreddits</p>
+                  </div>
+                </div>
+                {activeWorkspace?.connectedAccounts?.some((acc: any) => acc.provider === 'reddit') ? (
+                  <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700">
+                    <Check className="h-4 w-4 mr-2" /> Connected
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleConnectReddit} disabled={!isOwner}>
+                    <LinkIcon className="h-4 w-4 mr-2" /> Connect
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-4 border rounded-lg bg-card">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold">
+                    M
+                  </div>
+                  <div>
+                    <p className="font-medium">Mock Social (Testing)</p>
+                    <p className="text-xs text-muted-foreground">Simulated social network</p>
+                  </div>
+                </div>
+                {activeWorkspace?.connectedAccounts?.some((acc: any) => acc.provider === 'MockSocial') ? (
+                  <Button variant="outline" size="sm" className="text-emerald-600 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 hover:text-emerald-700">
+                    <Check className="h-4 w-4 mr-2" /> Connected
+                  </Button>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={handleConnectMockOauth} disabled={!isOwner}>
+                    <LinkIcon className="h-4 w-4 mr-2" /> Connect
+                  </Button>
+                )}
+              </div>
+            </div>
+            {!isOwner && (
+              <p className="text-xs text-muted-foreground mt-2">Only the workspace owner can connect or manage social accounts.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+              <CardTitle>Audit Logs</CardTitle>
+              <CardDescription>
+                Recent activity in your workspace.
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={fetchAuditLogs} disabled={isLoadingLogs}>
+              {isLoadingLogs ? 'Loading...' : 'Refresh Logs'}
+            </Button>
+          </CardHeader>
+          <CardContent>
+            {auditLogs.length > 0 ? (
+              <div className="space-y-4">
+                {auditLogs.slice(0, 10).map((log, idx) => (
+                  <div key={idx} className="flex flex-col gap-1 text-sm border-b pb-3 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium capitalize">{log.action.replace(/_/g, ' ')}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </span>
+                    </div>
+                    <span className="text-muted-foreground">{log.details}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                No audit logs found. Click refresh to load.
+              </p>
             )}
           </CardContent>
         </Card>

@@ -15,7 +15,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // Pages that don't require an active workspace to be viewed
-  const isPublicOrSetupRoute = ['/login', '/register', '/workspaces/new'].some(route => pathname.startsWith(route));
+  const isPublicOrSetupRoute = ['/login', '/register', '/workspaces/new', '/invitations'].some(route => pathname.startsWith(route));
 
   useEffect(() => {
     async function initSession() {

@@ -20,13 +20,19 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export function Topbar() {
   const { user, setAuth } = useAuthStore();
-  const { workspaces, activeWorkspaceId, setActiveWorkspace } = useWorkspaceStore();
+  const { workspaces, activeWorkspaceId, setActiveWorkspace, pendingInvitesCount, fetchPendingInvites } = useWorkspaceStore();
   const router = useRouter();
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchPendingInvites();
+    }
+  }, [user, fetchPendingInvites]);
 
   const handleLogout = async () => {
     try {
@@ -92,12 +98,14 @@ export function Topbar() {
           </Button>
         )}
 
-        {/* User Profile */}
         <DropdownMenu>
-          <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 w-10 rounded-full ml-2">
+          <DropdownMenuTrigger className="inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 w-10 rounded-full ml-2 relative">
             <Avatar className="h-8 w-8">
               <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
+            {pendingInvitesCount > 0 && (
+              <span className="absolute top-0 right-0 h-3 w-3 rounded-full bg-red-500 border-2 border-background" />
+            )}
             <span className="sr-only">Toggle user menu</span>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
@@ -112,6 +120,17 @@ export function Topbar() {
               </DropdownMenuLabel>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => router.push('/invitations')} className="flex items-center justify-between">
+              <div className="flex items-center">
+                <User className="mr-2 h-4 w-4" />
+                <span>Invitations</span>
+              </div>
+              {pendingInvitesCount > 0 && (
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
+                  {pendingInvitesCount}
+                </span>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => router.push('/settings')}>
               <Settings className="mr-2 h-4 w-4" />
               <span>Settings</span>
