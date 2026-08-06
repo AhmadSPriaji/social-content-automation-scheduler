@@ -22,7 +22,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
-import { Plus } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
 
 const postSchema = z.object({
   title: z.string().min(1, 'Judul post wajib diisi').max(100, 'Maksimal 100 karakter'),
@@ -40,6 +40,7 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [uploadedMediaUrls, setUploadedMediaUrls] = useState<string[]>([]);
   
   const { activeWorkspaceId } = useWorkspaceStore();
@@ -51,6 +52,28 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
       content: '',
     },
   });
+
+  const handleGenerateCaption = async () => {
+    const title = form.getValues('title');
+    if (!title) {
+      toast.error('Please enter a title first to generate a caption');
+      return;
+    }
+
+    setIsGeneratingAi(true);
+    try {
+      const response = await api.post('/posts/generate-caption', { prompt: title });
+      if (response.data?.caption) {
+        const currentContent = form.getValues('content') || '';
+        form.setValue('content', currentContent ? `${currentContent}\n\n${response.data.caption}` : response.data.caption);
+        toast.success('Caption generated successfully');
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to generate caption');
+    } finally {
+      setIsGeneratingAi(false);
+    }
+  };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -147,7 +170,20 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="content">Content</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="content">Content</Label>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                onClick={handleGenerateCaption}
+                disabled={isGeneratingAi}
+              >
+                <Sparkles className="h-3 w-3 mr-1" />
+                {isGeneratingAi ? 'Generating...' : 'AI Caption'}
+              </Button>
+            </div>
             <Textarea
               id="content"
               placeholder="What do you want to share?"
@@ -190,7 +226,7 @@ export function CreatePostModal({ onSuccess }: CreatePostModalProps) {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={isLoading || isUploading}>
+            <Button variant="outline" type="button" onClick={() => setOpen(false)} disabled={isLoading || isUploading || isGeneratingAi}>
               Cancel
             </Button>
             <Button type="submit" isLoading={isLoading || isUploading}>

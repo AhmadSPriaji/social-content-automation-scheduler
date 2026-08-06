@@ -413,7 +413,7 @@ export default function SettingsPage() {
                     <div className="flex items-center justify-between">
                       <span className="font-medium capitalize">{log.action.replace(/_/g, ' ')}</span>
                       <span className="text-xs text-muted-foreground">
-                        {new Date(log.createdAt).toLocaleString()}
+                        {new Date(log.timestamp).toLocaleString()}
                       </span>
                     </div>
                     <span className="text-muted-foreground">{log.details}</span>
